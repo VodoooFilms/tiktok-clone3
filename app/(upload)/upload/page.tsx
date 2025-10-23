@@ -46,12 +46,25 @@ export default function UploadPage() {
 
       // Prepare Post doc for your schema (snake_case)
       const createdAt = new Date().toISOString();
-      const baseText = (text || caption || "Posted from upload page").slice(0, 150);
+      const baseText = (text || "").slice(0, 150);
+      const baseCommon: any = { user_id: user.$id };
+      if (caption) baseCommon.caption = caption;
+      // Build variants with optional text
+      const withUrl: any = { ...baseCommon, video_url: fileView };
+      const withId: any = { ...baseCommon, video_id: createdFile.$id };
+      const withUrlCreated: any = { ...withUrl, created_at: createdAt };
+      const withIdCreated: any = { ...withId, created_at: createdAt };
+      if (baseText) {
+        withUrl.text = baseText;
+        withId.text = baseText;
+        withUrlCreated.text = baseText;
+        withIdCreated.text = baseText;
+      }
       const variants: Array<{ name: string; doc: any }> = [
-        { name: "snake_url_text_created", doc: { user_id: user.$id, video_url: fileView, text: baseText, caption, created_at: createdAt } },
-        { name: "snake_url_text", doc: { user_id: user.$id, video_url: fileView, text: baseText, caption } },
-        { name: "snake_id_text_created", doc: { user_id: user.$id, video_id: createdFile.$id, text: baseText, caption, created_at: createdAt } },
-        { name: "snake_id_text", doc: { user_id: user.$id, video_id: createdFile.$id, text: baseText, caption } },
+        { name: "snake_url_created", doc: withUrlCreated },
+        { name: "snake_url_min", doc: withUrl },
+        { name: "snake_id_created", doc: withIdCreated },
+        { name: "snake_id_min", doc: withId },
       ];
       const perms = [
         Permission.read(Role.any()),
@@ -107,14 +120,13 @@ export default function UploadPage() {
             />
           </label>
           <label className="text-sm">
-            Text (required)
+            Text (optional)
             <input
               value={text}
               onChange={(e) => setText(e.target.value)}
               className="mt-1 w-full rounded border border-neutral-800 bg-black px-3 py-2 text-white placeholder-neutral-500"
               placeholder="Brief description (max 150 chars)"
               maxLength={150}
-              required
             />
           </label>
           <label className="text-sm">

@@ -133,7 +133,7 @@ export default function DebugPage() {
           />
           <input
             type="text"
-            placeholder="Text (required in your schema)"
+            placeholder="Text (optional)"
             value={postText}
             onChange={(e) => setPostText(e.target.value)}
             className="w-full rounded border border-gray-600 bg-transparent px-3 py-1.5 text-sm text-white placeholder-gray-400 focus:outline-none sm:w-72"
@@ -208,14 +208,14 @@ export default function DebugPage() {
                 // 3) Create Post document with mapped keys
                 const createdAt = new Date().toISOString();
                 const docId = ID.unique();
-                const textVal = (postText || caption || "Posted from debug").slice(0, 150);
+                const textVal = (postText || "").slice(0, 150);
                 const payload: any = {
                   [userKey]: user.$id,
                   [videoKey]: createdFile.$id,
-                  [captionKey]: caption || "",
-                  [textKey]: textVal,
                   [createdAtKey]: createdAt,
                 };
+                if (caption) (payload as any)[captionKey] = caption;
+                if (textVal) (payload as any)[textKey] = textVal;
                 const perms = [
                   Permission.read(Role.any()),
                   Permission.update(Role.user(user.$id)),
@@ -231,11 +231,23 @@ export default function DebugPage() {
                 } catch (err: any) {
                   // Sequential fallbacks to accommodate different Post schemas (with required text)
                   const baseText = textVal;
+                  const baseCommon: any = { user_id: user.$id };
+                  if (caption) baseCommon.caption = caption;
+                  const withUrl: any = { ...baseCommon, video_url: fileView };
+                  const withId: any = { ...baseCommon, video_id: createdFile.$id };
+                  const withUrlCreated: any = { ...withUrl, created_at: createdAt };
+                  const withIdCreated: any = { ...withId, created_at: createdAt };
+                  if (baseText) {
+                    withUrl.text = baseText;
+                    withId.text = baseText;
+                    withUrlCreated.text = baseText;
+                    withIdCreated.text = baseText;
+                  }
                   const variants: Array<{ name: string; doc: any }> = [
-                    { name: "snake_url_text_created", doc: { user_id: user.$id, video_url: fileView, text: baseText, caption: caption || "", created_at: createdAt } },
-                    { name: "snake_url_text", doc: { user_id: user.$id, video_url: fileView, text: baseText, caption: caption || "" } },
-                    { name: "snake_id_text_created", doc: { user_id: user.$id, video_id: createdFile.$id, text: baseText, caption: caption || "", created_at: createdAt } },
-                    { name: "snake_id_text", doc: { user_id: user.$id, video_id: createdFile.$id, text: baseText, caption: caption || "" } },
+                    { name: "snake_url_created", doc: withUrlCreated },
+                    { name: "snake_url_min", doc: withUrl },
+                    { name: "snake_id_created", doc: withIdCreated },
+                    { name: "snake_id_min", doc: withId },
                   ];
                   let lastErr: any = err;
                   for (const v of variants) {
