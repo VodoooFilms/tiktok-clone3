@@ -1,6 +1,7 @@
 "use client";
 import type { Models } from "appwrite";
 import { storage } from "@/libs/AppWriteClient";
+import Link from "next/link";
 
 type Props = { doc: Models.Document };
 
@@ -29,7 +30,7 @@ export default function PostCard({ doc }: Props) {
   const createdAt = createdAtRaw ? new Date(createdAtRaw).toLocaleString() : "";
 
   return (
-    <article className="flex gap-4 border-b p-4">
+    <Link href={`/post/${doc.$id}`} className="flex gap-4 border-b p-4 hover:bg-neutral-900">
       <div className="w-44 shrink-0 overflow-hidden rounded bg-black">
         {videoSrc ? (
           <video
@@ -52,7 +53,6 @@ export default function PostCard({ doc }: Props) {
         </div>
         <p className="text-sm">{text || (doc as any).caption || ""}</p>
       </div>
-    </article>
+    </Link>
   );
 }
-

@@ -6,10 +6,9 @@ export default function UploadLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen bg-[#F8F8F8]">
+    <div className="min-h-screen bg-black text-white">
       <TopNav />
       <div className="mx-auto w-full max-w-7xl px-2">{children}</div>
     </div>
   );
 }
-
