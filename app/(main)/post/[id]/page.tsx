@@ -101,55 +101,39 @@ export default function PostDetailPage() {
           Permission.update(Role.user(user.$id)),
           Permission.delete(Role.user(user.$id)),
         ];
-        let d = await database.createDocument(
-          databaseId,
-          likeCol,
-          ID.unique(),
-          { user_id: user.$id, post_id: postId, created_at: new Date().toISOString() },
-          perms as any
-        );
-        setLikeDocId(d.$id);
-      } catch (e1: any) {
-        const msg1 = String(e1?.message || e1 || "");
+        // Build payload without created_at (your Like schema has no created_at)
+        // Include custom 'id' attribute as required by your schema
+        const basePayload: any = { user_id: user.$id, post_id: postId, id: `${user.$id}:${postId}`.slice(0, 30) };
         try {
           const d = await database.createDocument(
             databaseId,
             likeCol,
             ID.unique(),
-            { user_id: user.$id, post_id: postId },
-            [
-              Permission.read(Role.any()),
-              Permission.update(Role.user(user.$id)),
-              Permission.delete(Role.user(user.$id)),
-            ] as any
+            basePayload,
+            perms as any
           );
           setLikeDocId(d.$id);
-        } catch (e2: any) {
-          const msg2 = String(e2?.message || e2 || "");
-          if (/Missing required attribute\s+"id"/i.test(msg1) || /Missing required attribute\s+"id"/i.test(msg2)) {
-            try {
-              const customId = `${user.$id}:${postId}`.slice(0, 30);
-              const d = await database.createDocument(
-                databaseId,
-                likeCol,
-                ID.unique(),
-                { user_id: user.$id, post_id: postId, id: customId, created_at: new Date().toISOString() },
-                [
-                  Permission.read(Role.any()),
-                  Permission.update(Role.user(user.$id)),
-                  Permission.delete(Role.user(user.$id)),
-                ] as any
-              );
-              setLikeDocId(d.$id);
-              return;
-            } catch (e3) {
-              // fall through
-            }
+        } catch (eWithId: any) {
+          const msg = String(eWithId?.message || eWithId || "");
+          // If schema doesn't have 'id' attribute, retry without it
+          if (/Unknown attribute\s+"id"/i.test(msg)) {
+            const { id, ...noId } = basePayload;
+            const d = await database.createDocument(
+              databaseId,
+              likeCol,
+              ID.unique(),
+              noId,
+              perms as any
+            );
+            setLikeDocId(d.$id);
+          } else {
+            throw eWithId;
           }
-          setLikeDocId(null);
-          setLikeCount((c) => Math.max(0, c - 1));
-          console.error("Like failed", e2);
         }
+      } catch (e2) {
+        setLikeDocId(null);
+        setLikeCount((c) => Math.max(0, c - 1));
+        console.error("Like failed", e2);
       }
     }
   };
