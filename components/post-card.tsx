@@ -28,8 +28,8 @@ export default function PostCard({ doc }: Props) {
   const [likeError, setLikeError] = useState<string>("");
 
   // Detect Like schema (optional)
-  const [likeKeys, setLikeKeys] = useState<{ userKey: string; postKey: string; idKey: string; createdAtKey: string; hasIdAttr: boolean }>(
-    { userKey: "user_id", postKey: "post_id", idKey: "id", createdAtKey: "created_at", hasIdAttr: true }
+  const [likeKeys, setLikeKeys] = useState<{ userKey: string; postKey: string; idKey: string; hasIdAttr: boolean }>(
+    { userKey: "user_id", postKey: "post_id", idKey: "id", hasIdAttr: true }
   );
   useEffect(() => {
     let src = "";
@@ -98,8 +98,6 @@ export default function PostCard({ doc }: Props) {
         if (has("post_id")) next.postKey = "post_id";
         else if (has("postId")) next.postKey = "postId";
         else if (has("post")) next.postKey = "post";
-        if (has("created_at")) next.createdAtKey = "created_at";
-        else if (has("createdAt")) next.createdAtKey = "createdAt";
         next.hasIdAttr = has("id");
         setLikeKeys(next);
       } catch {}
@@ -139,7 +137,6 @@ export default function PostCard({ doc }: Props) {
         const payload: any = {
           [likeKeys.userKey]: user.$id,
           [likeKeys.postKey]: postId,
-          [likeKeys.createdAtKey]: new Date().toISOString(),
         };
         if (likeKeys.hasIdAttr) (payload as any)[likeKeys.idKey] = `${user.$id}:${postId}`.slice(0, 30);
         try {
@@ -150,12 +147,6 @@ export default function PostCard({ doc }: Props) {
           // Unknown id attribute → drop 'id' and retry once
           if (/Unknown attribute\s+"id"/i.test(msg)) {
             delete (payload as any)[likeKeys.idKey];
-            const created = await database.createDocument(dbId, likeCol, ID.unique(), payload, perms as any);
-            setLikeDocId(created.$id);
-          }
-          // Unknown created_at attribute → drop createdAt and retry once
-          else if (/Unknown attribute\s+"created_at"/i.test(msg) || /Unknown attribute\s+"createdAt"/i.test(msg)) {
-            delete (payload as any)[likeKeys.createdAtKey];
             const created = await database.createDocument(dbId, likeCol, ID.unique(), payload, perms as any);
             setLikeDocId(created.$id);
           } else {

@@ -110,17 +110,13 @@ export default function PostDetailPage() {
         user_id: user.$id,
         post_id: postId,
         id: `${user.$id}:${postId}`.slice(0, 30),
-        created_at: new Date().toISOString(),
       };
       const d = await database.createDocument(databaseId, likeCol, ID.unique(), payload, perms as any);
       setLikeDocId(d.$id);
     } catch (e: any) {
       try {
         const msg = String(e?.message || e || "");
-        let payload: any = { user_id: user.$id, post_id: postId, created_at: new Date().toISOString() };
-        if (/Unknown attribute\s+"created_at"/i.test(msg)) {
-          payload = { user_id: user.$id, post_id: postId };
-        }
+        let payload: any = { user_id: user.$id, post_id: postId };
         const d = await database.createDocument(databaseId, likeCol, ID.unique(), payload, perms as any);
         setLikeDocId(d.$id);
       } catch (e2) {
