@@ -13,8 +13,7 @@ export default function Home() {
         {!loading && posts.length === 0 && (
           <p className="p-4 text-sm text-neutral-500">No posts yet.</p>
         )}
-        {!loading &&
-          posts.map((doc, i) => <PostCard key={doc.$id} index={i + 1} />)}
+        {!loading && posts.map((doc) => <PostCard key={doc.$id} doc={doc} />)}
       </section>
     </MainLayout>
   );
