@@ -20,6 +20,10 @@ export default function PostDetailPage() {
   const { user } = useUser();
 
   const [likeCount, setLikeCount] = useState(0);
+  const [likeError, setLikeError] = useState("");
+  const [likeKeys, setLikeKeys] = useState<{ userKey: string; postKey: string; idKey: string; createdAtKey: string; hasIdAttr: boolean }>(
+    { userKey: "user_id", postKey: "post_id", idKey: "id", createdAtKey: "created_at", hasIdAttr: true }
+  );
   const [likeDocId, setLikeDocId] = useState<string | null>(null);
   const [comments, setComments] = useState<Models.Document[]>([]);
   const [commentText, setCommentText] = useState("");
@@ -44,14 +48,14 @@ export default function PostDetailPage() {
     if (!likeCol) return;
     const postId = String(id);
     const res = await database.listDocuments(databaseId, likeCol, [
-      Query.equal("post_id", postId),
+      Query.equal(likeKeys.postKey, postId),
       Query.limit(1),
     ] as any);
     setLikeCount(res.total || 0);
     if (user) {
       const mine = await database.listDocuments(databaseId, likeCol, [
-        Query.equal("post_id", postId),
-        Query.equal("user_id", user.$id),
+        Query.equal(likeKeys.postKey, postId),
+        Query.equal(likeKeys.userKey, user.$id),
         Query.limit(1),
       ] as any);
       setLikeDocId(mine.documents[0]?.$id || null);
@@ -64,7 +68,7 @@ export default function PostDetailPage() {
     if (!commentCol) return;
     const postId = String(id);
     const res = await database.listDocuments(databaseId, commentCol, [
-      Query.equal("post_id", postId),
+      Query.equal(likeKeys.postKey, postId),
       Query.orderDesc("created_at"),
       Query.limit(20),
     ] as any);
@@ -92,8 +96,7 @@ export default function PostDetailPage() {
         console.error("Unlike failed", e);
       }
     } else {
-      const optimistic = "optimistic:" + ID.unique();
-      setLikeDocId(optimistic);
+      setLikeError("");`n      setLikeDocId("pending");
       setLikeCount((c) => c + 1);
       try {
         const perms = [
@@ -105,27 +108,13 @@ export default function PostDetailPage() {
         // Include custom 'id' attribute as required by your schema
         const basePayload: any = { user_id: user.$id, post_id: postId, id: `${user.$id}:${postId}`.slice(0, 30) };
         try {
-          const d = await database.createDocument(
-            databaseId,
-            likeCol,
-            ID.unique(),
-            basePayload,
-            perms as any
-          );
-          setLikeDocId(d.$id);
+          const perms = [Permission.read(Role.any()), Permission.update(Role.user(user.$id)), Permission.delete(Role.user(user.$id))];\n        const payload: any = { [likeKeys.userKey]: user.$id, [likeKeys.postKey]: postId, [likeKeys.createdAtKey]: new Date().toISOString() };\n        if (likeKeys.hasIdAttr) (payload as any)[likeKeys.idKey] = `${user.$id}:${postId}`.slice(0,30);\n        try {\n          const d = await database.createDocument(databaseId, likeCol, ID.unique(), payload, perms as any);\n          setLikeDocId(d.$id);\n        } catch (eWithMap: any) {\n          const msg = String(eWithMap?.message || eWithMap || "");\n          if (/Unknown attribute\s+"id"/i.test(msg)) { delete (payload as any)[likeKeys.idKey]; const d = await database.createDocument(databaseId, likeCol, ID.unique(), payload, perms as any); setLikeDocId(d.$id); }\n          else if (/Unknown attribute\s+"created_at"/i.test(msg) || /Unknown attribute\s+"createdAt"/i.test(msg)) { delete (payload as any)[likeKeys.createdAtKey]; const d = await database.createDocument(databaseId, likeCol, ID.unique(), payload, perms as any); setLikeDocId(d.$id); }\n          else { throw eWithMap; }\n        }
         } catch (eWithId: any) {
           const msg = String(eWithId?.message || eWithId || "");
           // If schema doesn't have 'id' attribute, retry without it
           if (/Unknown attribute\s+"id"/i.test(msg)) {
             const { id, ...noId } = basePayload;
-            const d = await database.createDocument(
-              databaseId,
-              likeCol,
-              ID.unique(),
-              noId,
-              perms as any
-            );
-            setLikeDocId(d.$id);
+            const perms = [Permission.read(Role.any()), Permission.update(Role.user(user.$id)), Permission.delete(Role.user(user.$id))];\n        const payload: any = { [likeKeys.userKey]: user.$id, [likeKeys.postKey]: postId, [likeKeys.createdAtKey]: new Date().toISOString() };\n        if (likeKeys.hasIdAttr) (payload as any)[likeKeys.idKey] = `${user.$id}:${postId}`.slice(0,30);\n        try {\n          const d = await database.createDocument(databaseId, likeCol, ID.unique(), payload, perms as any);\n          setLikeDocId(d.$id);\n        } catch (eWithMap: any) {\n          const msg = String(eWithMap?.message || eWithMap || "");\n          if (/Unknown attribute\s+"id"/i.test(msg)) { delete (payload as any)[likeKeys.idKey]; const d = await database.createDocument(databaseId, likeCol, ID.unique(), payload, perms as any); setLikeDocId(d.$id); }\n          else if (/Unknown attribute\s+"created_at"/i.test(msg) || /Unknown attribute\s+"createdAt"/i.test(msg)) { delete (payload as any)[likeKeys.createdAtKey]; const d = await database.createDocument(databaseId, likeCol, ID.unique(), payload, perms as any); setLikeDocId(d.$id); }\n          else { throw eWithMap; }\n        }
           } else {
             throw eWithId;
           }
