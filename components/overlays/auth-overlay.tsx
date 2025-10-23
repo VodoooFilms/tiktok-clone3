@@ -30,19 +30,19 @@ export default function AuthOverlay() {
         className="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="mb-4 text-lg font-semibold">{user ? "Account" : "Log in"}</h2>
+        <h2 className="mb-4 text-lg font-semibold">{user && !loading ? "Account" : "Log in"}</h2>
 
-        {user ? (
+        {user && !loading ? (
           <div className="mb-4 text-sm text-neutral-700">
             <p className="mb-1">Signed in</p>
             <p className="text-neutral-500 break-all">{user.email || user.name || user.$id}</p>
           </div>
         ) : (
-          <p className="mb-4 text-sm text-neutral-600">Choose a method to continue.</p>
+          <p className="mb-4 text-sm text-neutral-600">{loading ? "Verifying session..." : "Choose a method to continue."}</p>
         )}
 
         <div className="flex flex-col gap-2">
-          {!user && (
+          {(!user || loading) && (
             <>
               <button
                 className="rounded bg-black px-3 py-2 text-white"
@@ -60,7 +60,7 @@ export default function AuthOverlay() {
             </>
           )}
 
-          {user && (
+          {user && !loading && (
             <button
               className="rounded border px-3 py-2"
               onClick={async () => {
