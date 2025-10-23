@@ -95,30 +95,34 @@ export default function PostDetailPage() {
         setLikeCount((c) => c + 1);
         console.error("Unlike failed", e);
       }
-    } else {
-      setLikeError("");`n      setLikeDocId("pending");
-      setLikeCount((c) => c + 1);
+      return;
+    }
+    // Like (optimistic)
+    setLikeDocId("pending");
+    setLikeCount((c) => c + 1);
+    const perms = [
+      Permission.read(Role.any()),
+      Permission.update(Role.user(user.$id)),
+      Permission.delete(Role.user(user.$id)),
+    ];
+    try {
+      const payload: any = {
+        user_id: user.$id,
+        post_id: postId,
+        id: `${user.$id}:${postId}`.slice(0, 30),
+        created_at: new Date().toISOString(),
+      };
+      const d = await database.createDocument(databaseId, likeCol, ID.unique(), payload, perms as any);
+      setLikeDocId(d.$id);
+    } catch (e: any) {
       try {
-        const perms = [
-          Permission.read(Role.any()),
-          Permission.update(Role.user(user.$id)),
-          Permission.delete(Role.user(user.$id)),
-        ];
-        // Build payload without created_at (your Like schema has no created_at)
-        // Include custom 'id' attribute as required by your schema
-        const basePayload: any = { user_id: user.$id, post_id: postId, id: `${user.$id}:${postId}`.slice(0, 30) };
-        try {
-          const perms = [Permission.read(Role.any()), Permission.update(Role.user(user.$id)), Permission.delete(Role.user(user.$id))];\n        const payload: any = { [likeKeys.userKey]: user.$id, [likeKeys.postKey]: postId, [likeKeys.createdAtKey]: new Date().toISOString() };\n        if (likeKeys.hasIdAttr) (payload as any)[likeKeys.idKey] = `${user.$id}:${postId}`.slice(0,30);\n        try {\n          const d = await database.createDocument(databaseId, likeCol, ID.unique(), payload, perms as any);\n          setLikeDocId(d.$id);\n        } catch (eWithMap: any) {\n          const msg = String(eWithMap?.message || eWithMap || "");\n          if (/Unknown attribute\s+"id"/i.test(msg)) { delete (payload as any)[likeKeys.idKey]; const d = await database.createDocument(databaseId, likeCol, ID.unique(), payload, perms as any); setLikeDocId(d.$id); }\n          else if (/Unknown attribute\s+"created_at"/i.test(msg) || /Unknown attribute\s+"createdAt"/i.test(msg)) { delete (payload as any)[likeKeys.createdAtKey]; const d = await database.createDocument(databaseId, likeCol, ID.unique(), payload, perms as any); setLikeDocId(d.$id); }\n          else { throw eWithMap; }\n        }
-        } catch (eWithId: any) {
-          const msg = String(eWithId?.message || eWithId || "");
-          // If schema doesn't have 'id' attribute, retry without it
-          if (/Unknown attribute\s+"id"/i.test(msg)) {
-            const { id, ...noId } = basePayload;
-            const perms = [Permission.read(Role.any()), Permission.update(Role.user(user.$id)), Permission.delete(Role.user(user.$id))];\n        const payload: any = { [likeKeys.userKey]: user.$id, [likeKeys.postKey]: postId, [likeKeys.createdAtKey]: new Date().toISOString() };\n        if (likeKeys.hasIdAttr) (payload as any)[likeKeys.idKey] = `${user.$id}:${postId}`.slice(0,30);\n        try {\n          const d = await database.createDocument(databaseId, likeCol, ID.unique(), payload, perms as any);\n          setLikeDocId(d.$id);\n        } catch (eWithMap: any) {\n          const msg = String(eWithMap?.message || eWithMap || "");\n          if (/Unknown attribute\s+"id"/i.test(msg)) { delete (payload as any)[likeKeys.idKey]; const d = await database.createDocument(databaseId, likeCol, ID.unique(), payload, perms as any); setLikeDocId(d.$id); }\n          else if (/Unknown attribute\s+"created_at"/i.test(msg) || /Unknown attribute\s+"createdAt"/i.test(msg)) { delete (payload as any)[likeKeys.createdAtKey]; const d = await database.createDocument(databaseId, likeCol, ID.unique(), payload, perms as any); setLikeDocId(d.$id); }\n          else { throw eWithMap; }\n        }
-          } else {
-            throw eWithId;
-          }
+        const msg = String(e?.message || e || "");
+        let payload: any = { user_id: user.$id, post_id: postId, created_at: new Date().toISOString() };
+        if (/Unknown attribute\s+"created_at"/i.test(msg)) {
+          payload = { user_id: user.$id, post_id: postId };
         }
+        const d = await database.createDocument(databaseId, likeCol, ID.unique(), payload, perms as any);
+        setLikeDocId(d.$id);
       } catch (e2) {
         setLikeDocId(null);
         setLikeCount((c) => Math.max(0, c - 1));
