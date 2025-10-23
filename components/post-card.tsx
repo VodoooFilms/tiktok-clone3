@@ -24,6 +24,13 @@ export default function PostCard({ doc }: Props) {
   const [likeCount, setLikeCount] = useState<number>(0);
   const [likeDocId, setLikeDocId] = useState<string | null>(null);
   const [loadingLikes, setLoadingLikes] = useState(false);
+  const [likeBusy, setLikeBusy] = useState(false);
+  const [likeError, setLikeError] = useState<string>("");
+
+  // Detect Like schema (optional)
+  const [likeKeys, setLikeKeys] = useState<{ userKey: string; postKey: string; idKey: string; createdAtKey: string; hasIdAttr: boolean }>(
+    { userKey: "user_id", postKey: "post_id", idKey: "id", createdAtKey: "created_at", hasIdAttr: true }
+  );
   useEffect(() => {
     let src = "";
     if (videoUrlKey) {
@@ -47,14 +54,14 @@ export default function PostCard({ doc }: Props) {
     try {
       const postId = String((doc as any).$id);
       const res = await database.listDocuments(dbId, likeCol, [
-        Query.equal("post_id", postId),
+        Query.equal(likeKeys.postKey, postId),
         Query.limit(1),
       ] as any);
       setLikeCount(res.total || 0);
       if (user) {
         const mine = await database.listDocuments(dbId, likeCol, [
-          Query.equal("post_id", postId),
-          Query.equal("user_id", user.$id),
+          Query.equal(likeKeys.postKey, postId),
+          Query.equal(likeKeys.userKey, user.$id),
           Query.limit(1),
         ] as any);
         setLikeDocId(mine.documents[0]?.$id || null);
@@ -69,11 +76,42 @@ export default function PostCard({ doc }: Props) {
   useEffect(() => {
     refreshLikes();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [doc.$id, dbId, likeCol, user?.$id]);
+  }, [doc.$id, dbId, likeCol, user?.$id, likeKeys.postKey, likeKeys.userKey]);
+
+  // Try to detect Like collection attribute keys (requires APPWRITE_API_KEY on server)
+  useEffect(() => {
+    (async () => {
+      try {
+        if (!dbId || !likeCol) return;
+        const url = new URL(window.location.origin + "/api/admin/collection");
+        url.searchParams.set("db", String(dbId));
+        url.searchParams.set("col", String(likeCol));
+        const res = await fetch(url.toString(), { cache: "no-store" });
+        if (!res.ok) return; // skip if unauthorized
+        const json = await res.json();
+        const attrs: any[] = json?.data?.attributes ?? [];
+        const has = (name: string) => attrs.some((a: any) => a.key === name || a.$id === name);
+        const next = { ...likeKeys };
+        if (has("user_id")) next.userKey = "user_id";
+        else if (has("userid")) next.userKey = "userid";
+        else if (has("userId")) next.userKey = "userId";
+        if (has("post_id")) next.postKey = "post_id";
+        else if (has("postId")) next.postKey = "postId";
+        else if (has("post")) next.postKey = "post";
+        if (has("created_at")) next.createdAtKey = "created_at";
+        else if (has("createdAt")) next.createdAtKey = "createdAt";
+        next.hasIdAttr = has("id");
+        setLikeKeys(next);
+      } catch {}
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dbId, likeCol]);
 
   const toggleLike = async () => {
-    if (!dbId || !likeCol) return;
+    if (!dbId || !likeCol || likeBusy) return;
     if (!user) return; // could open auth overlay here
+    setLikeBusy(true);
+    setLikeError("");
     const postId = String((doc as any).$id);
     // Optimistic update
     if (likeDocId) {
@@ -93,64 +131,46 @@ export default function PostCard({ doc }: Props) {
       setLikeDocId(optimisticId);
       setLikeCount((c) => c + 1);
       try {
-        // Primary schema (snake_case)
-        const payloadBase: any = { user_id: user.$id, post_id: postId };
         const perms = [
           Permission.read(Role.any()),
           Permission.update(Role.user(user.$id)),
           Permission.delete(Role.user(user.$id)),
         ];
-        // Try with created_at first, then without; then with required custom id if needed
-        let created = await database.createDocument(
-          dbId,
-          likeCol,
-          ID.unique(),
-          { ...payloadBase, created_at: new Date().toISOString() },
-          perms as any
-        );
-        setLikeDocId(created.$id);
-      } catch (e1: any) {
-        const msg1 = String(e1?.message || e1 || "");
+        const payload: any = {
+          [likeKeys.userKey]: user.$id,
+          [likeKeys.postKey]: postId,
+          [likeKeys.createdAtKey]: new Date().toISOString(),
+        };
+        if (likeKeys.hasIdAttr) (payload as any)[likeKeys.idKey] = `${user.$id}:${postId}`.slice(0, 30);
         try {
-          const created = await database.createDocument(
-            dbId,
-            likeCol,
-            ID.unique(),
-            { user_id: user.$id, post_id: postId },
-            [
-              Permission.read(Role.any()),
-              Permission.update(Role.user(user.$id)),
-              Permission.delete(Role.user(user.$id)),
-            ] as any
-          );
+          const created = await database.createDocument(dbId, likeCol, ID.unique(), payload, perms as any);
           setLikeDocId(created.$id);
-        } catch (e2: any) {
-          const msg2 = String(e2?.message || e2 || "");
-          if (/Missing required attribute\s+"id"/i.test(msg1) || /Missing required attribute\s+"id"/i.test(msg2)) {
-            try {
-              const customId = `${user.$id}:${postId}`.slice(0, 30);
-              const created = await database.createDocument(
-                dbId,
-                likeCol,
-                ID.unique(),
-                { user_id: user.$id, post_id: postId, id: customId, created_at: new Date().toISOString() },
-                [
-                  Permission.read(Role.any()),
-                  Permission.update(Role.user(user.$id)),
-                  Permission.delete(Role.user(user.$id)),
-                ] as any
-              );
-              setLikeDocId(created.$id);
-              return;
-            } catch (e3) {
-              // fall through to rollback
-            }
+        } catch (eWithMap: any) {
+          const msg = String(eWithMap?.message || eWithMap || "");
+          // Unknown id attribute → drop 'id' and retry once
+          if (/Unknown attribute\s+"id"/i.test(msg)) {
+            delete (payload as any)[likeKeys.idKey];
+            const created = await database.createDocument(dbId, likeCol, ID.unique(), payload, perms as any);
+            setLikeDocId(created.$id);
           }
-          // rollback on error
-          setLikeDocId(null);
-          setLikeCount((c) => Math.max(0, c - 1));
-          console.error("Like failed", e2);
+          // Unknown created_at attribute → drop createdAt and retry once
+          else if (/Unknown attribute\s+"created_at"/i.test(msg) || /Unknown attribute\s+"createdAt"/i.test(msg)) {
+            delete (payload as any)[likeKeys.createdAtKey];
+            const created = await database.createDocument(dbId, likeCol, ID.unique(), payload, perms as any);
+            setLikeDocId(created.$id);
+          } else {
+            throw eWithMap;
+          }
         }
+      } catch (e2: any) {
+        // rollback on error
+        setLikeDocId(null);
+        setLikeCount((c) => Math.max(0, c - 1));
+        const msg = String(e2?.message || e2 || "");
+        setLikeError(msg);
+        console.error("Like failed", e2);
+      } finally {
+        setLikeBusy(false);
       }
     }
   };
@@ -221,14 +241,18 @@ export default function PostCard({ doc }: Props) {
           <div className="ml-auto flex shrink-0 flex-col items-center gap-2">
             <button
               onClick={toggleLike}
-              className={`grid h-12 w-12 place-items-center rounded-full border transition-colors ${likeDocId ? "bg-rose-600 border-rose-600 text-white" : "border-neutral-700 hover:bg-neutral-900 text-neutral-200"}`}
+              className={`grid h-12 w-12 place-items-center rounded-full border transition-colors ${likeDocId ? "bg-rose-600 border-rose-600 text-white" : "border-neutral-700 hover:bg-neutral-900 text-neutral-200"} ${likeBusy ? "opacity-60 cursor-not-allowed" : ""}`}
               title={user ? (likeDocId ? "Unlike" : "Like") : "Log in to like"}
+              disabled={likeBusy}
             >
               <span className="text-lg">{likeDocId ? "❤" : "♡"}</span>
             </button>
             <div className="text-xs opacity-80 min-w-[2ch] text-center">
               {loadingLikes ? "…" : likeCount}
             </div>
+            {likeError && (
+              <div className="max-w-[140px] text-center text-[10px] text-red-400">{likeError}</div>
+            )}
           </div>
         </div>
       </div>
