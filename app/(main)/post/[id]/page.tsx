@@ -81,27 +81,54 @@ export default function PostDetailPage() {
     if (!likeCol || !user) return;
     const postId = String(id);
     if (likeDocId) {
+      const prev = likeDocId;
+      setLikeDocId(null);
+      setLikeCount((c) => Math.max(0, c - 1));
       try {
-        await database.deleteDocument(databaseId, likeCol, likeDocId);
-        setLikeDocId(null);
-        setLikeCount((c) => Math.max(0, c - 1));
-      } catch {}
+        await database.deleteDocument(databaseId, likeCol, prev);
+      } catch (e) {
+        setLikeDocId(prev);
+        setLikeCount((c) => c + 1);
+        console.error("Unlike failed", e);
+      }
     } else {
+      const optimistic = "optimistic:" + ID.unique();
+      setLikeDocId(optimistic);
+      setLikeCount((c) => c + 1);
       try {
-        const payload: any = {
-          user_id: user.$id,
-          post_id: postId,
-          created_at: new Date().toISOString(),
-        };
         const perms = [
           Permission.read(Role.any()),
           Permission.update(Role.user(user.$id)),
           Permission.delete(Role.user(user.$id)),
         ];
-        const d = await database.createDocument(databaseId, likeCol, ID.unique(), payload, perms as any);
+        let d = await database.createDocument(
+          databaseId,
+          likeCol,
+          ID.unique(),
+          { user_id: user.$id, post_id: postId, created_at: new Date().toISOString() },
+          perms as any
+        );
         setLikeDocId(d.$id);
-        setLikeCount((c) => c + 1);
-      } catch {}
+      } catch (e1) {
+        try {
+          const d = await database.createDocument(
+            databaseId,
+            likeCol,
+            ID.unique(),
+            { user_id: user.$id, post_id: postId },
+            [
+              Permission.read(Role.any()),
+              Permission.update(Role.user(user.$id)),
+              Permission.delete(Role.user(user.$id)),
+            ] as any
+          );
+          setLikeDocId(d.$id);
+        } catch (e2) {
+          setLikeDocId(null);
+          setLikeCount((c) => Math.max(0, c - 1));
+          console.error("Like failed", e2);
+        }
+      }
     }
   };
 

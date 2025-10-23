@@ -75,29 +75,61 @@ export default function PostCard({ doc }: Props) {
     if (!dbId || !likeCol) return;
     if (!user) return; // could open auth overlay here
     const postId = String((doc as any).$id);
+    // Optimistic update
     if (likeDocId) {
+      const prevId = likeDocId;
+      setLikeDocId(null);
+      setLikeCount((c) => Math.max(0, c - 1));
       try {
-        await database.deleteDocument(dbId, likeCol, likeDocId);
-        setLikeDocId(null);
-        setLikeCount((c) => Math.max(0, c - 1));
-      } catch {}
+        await database.deleteDocument(dbId, likeCol, prevId);
+      } catch (e) {
+        // rollback on error
+        setLikeDocId(prevId);
+        setLikeCount((c) => c + 1);
+        console.error("Unlike failed", e);
+      }
     } else {
+      const optimisticId = "optimistic:" + ID.unique();
+      setLikeDocId(optimisticId);
+      setLikeCount((c) => c + 1);
       try {
-        const newId = ID.unique();
-        const payload: any = {
-          user_id: user.$id,
-          post_id: postId,
-          created_at: new Date().toISOString(),
-        };
+        // Primary schema (snake_case)
+        const payloadBase: any = { user_id: user.$id, post_id: postId };
         const perms = [
           Permission.read(Role.any()),
           Permission.update(Role.user(user.$id)),
           Permission.delete(Role.user(user.$id)),
         ];
-        const created = await database.createDocument(dbId, likeCol, newId, payload, perms as any);
+        // Try with created_at first, then without
+        let created = await database.createDocument(
+          dbId,
+          likeCol,
+          ID.unique(),
+          { ...payloadBase, created_at: new Date().toISOString() },
+          perms as any
+        );
         setLikeDocId(created.$id);
-        setLikeCount((c) => c + 1);
-      } catch {}
+      } catch (e1) {
+        try {
+          const created = await database.createDocument(
+            dbId,
+            likeCol,
+            ID.unique(),
+            { user_id: user.$id, post_id: postId },
+            [
+              Permission.read(Role.any()),
+              Permission.update(Role.user(user.$id)),
+              Permission.delete(Role.user(user.$id)),
+            ] as any
+          );
+          setLikeDocId(created.$id);
+        } catch (e2) {
+          // rollback on error
+          setLikeDocId(null);
+          setLikeCount((c) => Math.max(0, c - 1));
+          console.error("Like failed", e2);
+        }
+      }
     }
   };
 
@@ -167,10 +199,10 @@ export default function PostCard({ doc }: Props) {
           <div className="ml-auto flex shrink-0 flex-col items-center gap-2">
             <button
               onClick={toggleLike}
-              className={`grid h-12 w-12 place-items-center rounded-full border ${likeDocId ? "bg-rose-600 border-rose-600" : "border-neutral-700 hover:bg-neutral-900"}`}
+              className={`grid h-12 w-12 place-items-center rounded-full border transition-colors ${likeDocId ? "bg-rose-600 border-rose-600 text-white" : "border-neutral-700 hover:bg-neutral-900 text-neutral-200"}`}
               title={user ? (likeDocId ? "Unlike" : "Like") : "Log in to like"}
             >
-              <span className="text-sm">❤</span>
+              <span className="text-lg">{likeDocId ? "❤" : "♡"}</span>
             </button>
             <div className="text-xs opacity-80 min-w-[2ch] text-center">
               {loadingLikes ? "…" : likeCount}
