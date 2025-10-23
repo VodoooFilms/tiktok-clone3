@@ -212,7 +212,6 @@ export default function DebugPage() {
                 const payload: any = {
                   [userKey]: user.$id,
                   [videoKey]: createdFile.$id,
-                  [createdAtKey]: createdAt,
                 };
                 if (caption) (payload as any)[captionKey] = caption;
                 if (textVal) (payload as any)[textKey] = textVal;
@@ -235,18 +234,12 @@ export default function DebugPage() {
                   if (caption) baseCommon.caption = caption;
                   const withUrl: any = { ...baseCommon, video_url: fileView };
                   const withId: any = { ...baseCommon, video_id: createdFile.$id };
-                  const withUrlCreated: any = { ...withUrl, created_at: createdAt };
-                  const withIdCreated: any = { ...withId, created_at: createdAt };
                   if (baseText) {
                     withUrl.text = baseText;
                     withId.text = baseText;
-                    withUrlCreated.text = baseText;
-                    withIdCreated.text = baseText;
                   }
                   const variants: Array<{ name: string; doc: any }> = [
-                    { name: "snake_url_created", doc: withUrlCreated },
                     { name: "snake_url_min", doc: withUrl },
-                    { name: "snake_id_created", doc: withIdCreated },
                     { name: "snake_id_min", doc: withId },
                   ];
                   let lastErr: any = err;
