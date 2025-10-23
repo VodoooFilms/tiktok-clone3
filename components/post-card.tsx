@@ -100,7 +100,7 @@ export default function PostCard({ doc }: Props) {
           Permission.update(Role.user(user.$id)),
           Permission.delete(Role.user(user.$id)),
         ];
-        // Try with created_at first, then without
+        // Try with created_at first, then without; then with required custom id if needed
         let created = await database.createDocument(
           dbId,
           likeCol,
@@ -109,7 +109,8 @@ export default function PostCard({ doc }: Props) {
           perms as any
         );
         setLikeDocId(created.$id);
-      } catch (e1) {
+      } catch (e1: any) {
+        const msg1 = String(e1?.message || e1 || "");
         try {
           const created = await database.createDocument(
             dbId,
@@ -123,7 +124,28 @@ export default function PostCard({ doc }: Props) {
             ] as any
           );
           setLikeDocId(created.$id);
-        } catch (e2) {
+        } catch (e2: any) {
+          const msg2 = String(e2?.message || e2 || "");
+          if (/Missing required attribute\s+"id"/i.test(msg1) || /Missing required attribute\s+"id"/i.test(msg2)) {
+            try {
+              const customId = `${user.$id}:${postId}`.slice(0, 30);
+              const created = await database.createDocument(
+                dbId,
+                likeCol,
+                ID.unique(),
+                { user_id: user.$id, post_id: postId, id: customId, created_at: new Date().toISOString() },
+                [
+                  Permission.read(Role.any()),
+                  Permission.update(Role.user(user.$id)),
+                  Permission.delete(Role.user(user.$id)),
+                ] as any
+              );
+              setLikeDocId(created.$id);
+              return;
+            } catch (e3) {
+              // fall through to rollback
+            }
+          }
           // rollback on error
           setLikeDocId(null);
           setLikeCount((c) => Math.max(0, c - 1));
