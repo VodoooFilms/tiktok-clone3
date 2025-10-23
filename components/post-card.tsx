@@ -30,29 +30,43 @@ export default function PostCard({ doc }: Props) {
   const createdAt = createdAtRaw ? new Date(createdAtRaw).toLocaleString() : "";
 
   return (
-    <Link href={`/post/${doc.$id}`} className="flex gap-4 border-b p-4 hover:bg-neutral-900">
-      <div className="w-44 shrink-0 overflow-hidden rounded bg-black">
-        {videoSrc ? (
-          <video
-            src={videoSrc}
-            className="h-40 w-44 object-cover"
-            controls
-            preload="metadata"
-          />
-        ) : (
-          <div className="h-40 w-44 bg-neutral-200" />
-        )}
-      </div>
-      <div className="flex flex-1 flex-col">
-        <div className="mb-1 flex items-center gap-2">
-          <div className="h-8 w-8 rounded-full bg-neutral-200" />
-          <div className="text-sm font-medium">
-            {(doc as any).user_id || (doc as any).userid || "user"}
+    <article className="w-full border-b border-neutral-800">
+      <div className="mx-auto flex w-full max-w-[680px] flex-col gap-2 px-0 md:px-4">
+        <Link href={`/post/${doc.$id}`} className="block">
+          <div className="relative w-full bg-black md:rounded-lg overflow-hidden">
+            {videoSrc ? (
+              <video
+                src={videoSrc}
+                className="h-[calc(100vh-56px)] w-full object-cover md:h-[720px]"
+                muted
+                playsInline
+                loop
+                autoPlay
+                controls={false}
+                preload="metadata"
+              />
+            ) : (
+              <div className="h-[calc(100vh-56px)] w-full bg-neutral-900 md:h-[720px]" />
+            )}
           </div>
-          {createdAt && <div className="ml-auto text-xs opacity-60">{createdAt}</div>}
+        </Link>
+        <div className="mx-4 mb-4 flex items-start gap-3 md:mx-0">
+          <div className="h-10 w-10 shrink-0 rounded-full bg-neutral-800" />
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <div className="text-sm font-medium">
+                {(doc as any).user_id || (doc as any).userid || "user"}
+              </div>
+              {createdAt && <div className="text-xs opacity-60">{createdAt}</div>}
+            </div>
+            {(text || (doc as any).caption) && (
+              <p className="mt-1 text-sm text-neutral-200">
+                {text || (doc as any).caption}
+              </p>
+            )}
+          </div>
         </div>
-        <p className="text-sm">{text || (doc as any).caption || ""}</p>
       </div>
-    </Link>
+    </article>
   );
 }
