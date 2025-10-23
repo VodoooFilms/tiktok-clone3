@@ -3,6 +3,7 @@ import UploadLayout from "@/app/layouts/UploadLayout";
 import { useState, useMemo, useRef } from "react";
 import { useUser } from "@/app/context/user";
 import { storage, database, ID, Permission, Role } from "@/libs/AppWriteClient";
+import { useRouter } from "next/navigation";
 
 export default function UploadPage() {
   const { user } = useUser();
@@ -11,6 +12,8 @@ export default function UploadPage() {
   const [text, setText] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [log, setLog] = useState<string>("");
+  const [progress, setProgress] = useState<number | null>(null);
+  const [error, setError] = useState<string>("");
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   const previewUrl = useMemo(() => (file ? URL.createObjectURL(file) : ""), [file]);
@@ -19,23 +22,30 @@ export default function UploadPage() {
   const colPost = process.env.NEXT_PUBLIC_COLLECTION_ID_POST as string | undefined;
 
   const write = (line: string) => setLog((p) => (p ? p + "\n" + line : line));
+  const router = useRouter();
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (submitting) return;
     setSubmitting(true);
+    setError("");
     setLog("");
     try {
       if (!user) throw new Error("No session. Log in first.");
       if (!bucketId) throw new Error("Missing NEXT_PUBLIC_BUCKET_ID");
       if (!dbId || !colPost) throw new Error("Missing NEXT_PUBLIC_DATABASE_ID/COLLECTION_ID_POST");
       if (!file) throw new Error("Pick a video file first");
+      const MAX_MB = 100; // adjust as needed
+      if (file.size > MAX_MB * 1024 * 1024) {
+        throw new Error(`File too large. Max ${MAX_MB}MB`);
+      }
 
       write(`# Upload start @ ${new Date().toISOString()}`);
       write(`file: ${file.name} (${file.size} bytes)`);
 
       // Upload to storage
       const fileId = ID.unique();
+      setProgress(null); // indeterminate
       const createdFile = await storage.createFile(String(bucketId), fileId, file, [
         Permission.read(Role.any()),
         Permission.update(Role.user(user.$id)),
@@ -73,6 +83,7 @@ export default function UploadPage() {
       ];
       const docId = ID.unique();
       let lastErr: any = null;
+      let createdPostId: string | null = null;
       for (const v of variants) {
         try {
           const postDoc = await database.createDocument(String(dbId), String(colPost), docId, v.doc, perms as any);
@@ -82,16 +93,23 @@ export default function UploadPage() {
           setFile(null);
           try { if (videoRef.current) videoRef.current.load(); } catch {}
           lastErr = null;
+          createdPostId = postDoc.$id;
           break;
         } catch (e: any) {
           lastErr = e;
         }
       }
       if (lastErr) throw lastErr;
+      if (createdPostId) {
+        router.push(`/post/${createdPostId}`);
+      }
     } catch (e: any) {
-      write(`ERROR • ${String(e?.message || e)}`);
+      const msg = String(e?.message || e);
+      write(`ERROR • ${msg}`);
+      setError(msg);
     } finally {
       setSubmitting(false);
+      setProgress(null);
     }
   };
 
@@ -108,6 +126,12 @@ export default function UploadPage() {
               </div>
             )}
           </div>
+          {submitting && (
+            <div className="mt-2 h-1 w-full overflow-hidden rounded bg-neutral-800">
+              <div className="h-full w-1/2 animate-pulse bg-emerald-600"></div>
+            </div>
+          )}
+          {error && <div className="mt-2 text-sm text-red-400">{error}</div>}
         </div>
         <form onSubmit={onSubmit} className="flex flex-col gap-3">
           <label className="text-sm">

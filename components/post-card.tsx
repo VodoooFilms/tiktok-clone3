@@ -105,12 +105,17 @@ export default function PostCard({ doc }: Props) {
   useEffect(() => {
     const el = videoRef.current;
     if (!el) return;
+    let fetched = false;
     const obs = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
           const v = entry.target as HTMLVideoElement;
           if (entry.isIntersecting && entry.intersectionRatio > 0.8) {
             try { v.play().catch(() => {}); } catch {}
+            if (!fetched) {
+              fetched = true;
+              refreshLikes();
+            }
           } else {
             try { v.pause(); } catch {}
           }
@@ -123,7 +128,7 @@ export default function PostCard({ doc }: Props) {
   }, [videoSrc]);
 
   return (
-    <article className="w-full border-b border-neutral-800">
+    <article className="w-full border-b border-neutral-800 snap-start">
       <div className="mx-auto flex w-full max-w-[680px] flex-col gap-2 px-0 md:px-4">
         <Link href={`/post/${doc.$id}`} className="block">
           <div className="relative w-full bg-black md:rounded-lg overflow-hidden">
