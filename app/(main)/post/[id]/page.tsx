@@ -2,8 +2,9 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import type { Models } from "appwrite";
-import { database, storage } from "@/libs/AppWriteClient";
+import { database, storage, ID, Permission, Role, Query } from "@/libs/AppWriteClient";
 import MainLayout from "@/app/layouts/MainLayout";
+import { useUser } from "@/app/context/user";
 
 export default function PostDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -14,6 +15,15 @@ export default function PostDetailPage() {
   const databaseId = process.env.NEXT_PUBLIC_DATABASE_ID as string;
   const collectionId = process.env.NEXT_PUBLIC_COLLECTION_ID_POST as string;
   const bucketId = process.env.NEXT_PUBLIC_BUCKET_ID as string | undefined;
+  const likeCol = process.env.NEXT_PUBLIC_COLLECTION_ID_LIKE as string | undefined;
+  const commentCol = process.env.NEXT_PUBLIC_COLLECTION_ID_COMMENT as string | undefined;
+  const { user } = useUser();
+
+  const [likeCount, setLikeCount] = useState(0);
+  const [likeDocId, setLikeDocId] = useState<string | null>(null);
+  const [comments, setComments] = useState<Models.Document[]>([]);
+  const [commentText, setCommentText] = useState("");
+  const [postingComment, setPostingComment] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -29,6 +39,97 @@ export default function PostDetailPage() {
       }
     })();
   }, [id, databaseId, collectionId]);
+
+  const refreshLikes = async () => {
+    if (!likeCol) return;
+    const postId = String(id);
+    const res = await database.listDocuments(databaseId, likeCol, [
+      Query.equal("post_id", postId),
+      Query.limit(1),
+    ] as any);
+    setLikeCount(res.total || 0);
+    if (user) {
+      const mine = await database.listDocuments(databaseId, likeCol, [
+        Query.equal("post_id", postId),
+        Query.equal("user_id", user.$id),
+        Query.limit(1),
+      ] as any);
+      setLikeDocId(mine.documents[0]?.$id || null);
+    } else {
+      setLikeDocId(null);
+    }
+  };
+
+  const refreshComments = async () => {
+    if (!commentCol) return;
+    const postId = String(id);
+    const res = await database.listDocuments(databaseId, commentCol, [
+      Query.equal("post_id", postId),
+      Query.orderDesc("created_at"),
+      Query.limit(20),
+    ] as any);
+    setComments(res.documents);
+  };
+
+  useEffect(() => {
+    refreshLikes();
+    refreshComments();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, user?.$id, likeCol, commentCol]);
+
+  const toggleLike = async () => {
+    if (!likeCol || !user) return;
+    const postId = String(id);
+    if (likeDocId) {
+      try {
+        await database.deleteDocument(databaseId, likeCol, likeDocId);
+        setLikeDocId(null);
+        setLikeCount((c) => Math.max(0, c - 1));
+      } catch {}
+    } else {
+      try {
+        const payload: any = {
+          user_id: user.$id,
+          post_id: postId,
+          created_at: new Date().toISOString(),
+        };
+        const perms = [
+          Permission.read(Role.any()),
+          Permission.update(Role.user(user.$id)),
+          Permission.delete(Role.user(user.$id)),
+        ];
+        const d = await database.createDocument(databaseId, likeCol, ID.unique(), payload, perms as any);
+        setLikeDocId(d.$id);
+        setLikeCount((c) => c + 1);
+      } catch {}
+    }
+  };
+
+  const submitComment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!commentCol || !user) return;
+    const text = commentText.trim();
+    if (!text) return;
+    setPostingComment(true);
+    try {
+      const payload: any = {
+        user_id: user.$id,
+        post_id: String(id),
+        text,
+        created_at: new Date().toISOString(),
+      };
+      const perms = [
+        Permission.read(Role.any()),
+        Permission.update(Role.user(user.$id)),
+        Permission.delete(Role.user(user.$id)),
+      ];
+      const created = await database.createDocument(databaseId, commentCol, ID.unique(), payload, perms as any);
+      setComments((prev) => [created as any, ...prev]);
+      setCommentText("");
+    } finally {
+      setPostingComment(false);
+    }
+  };
 
   const get = (obj: any, keys: string[]) => keys.find((k) => k in obj);
 
@@ -74,9 +175,50 @@ export default function PostDetailPage() {
           {createdAt && <div className="text-xs text-neutral-400">{createdAt}</div>}
           {text && <p className="text-sm">{text}</p>}
           {caption && <p className="text-sm text-neutral-400">{caption}</p>}
+          <div className="mt-2 flex items-center gap-3">
+            <button
+              onClick={toggleLike}
+              className={`rounded-full border px-4 py-1 ${likeDocId ? "bg-rose-600 border-rose-600" : "border-neutral-700"}`}
+            >
+              ❤ Like
+            </button>
+            <span className="text-sm opacity-80">{likeCount} likes</span>
+          </div>
+          <div className="mt-4">
+            <h2 className="mb-2 text-sm font-medium opacity-80">Comments</h2>
+            <form onSubmit={submitComment} className="mb-3 flex gap-2">
+              <input
+                value={commentText}
+                onChange={(e) => setCommentText(e.target.value)}
+                placeholder="Add a comment"
+                className="flex-1 rounded border border-neutral-800 bg-black px-3 py-2 text-sm"
+              />
+              <button
+                type="submit"
+                disabled={postingComment || !commentText.trim()}
+                className="rounded bg-emerald-600 px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {postingComment ? "Posting…" : "Post"}
+              </button>
+            </form>
+            <div className="flex flex-col divide-y divide-neutral-800">
+              {comments.map((c) => (
+                <div key={c.$id} className="py-2">
+                  <div className="flex items-center gap-2 text-xs opacity-60">
+                    <span>{(c as any).user_id || "user"}</span>
+                    <span>·</span>
+                    <span>{new Date(String((c as any).created_at || c.$createdAt)).toLocaleString()}</span>
+                  </div>
+                  <div className="text-sm">{(c as any).text}</div>
+                </div>
+              ))}
+              {comments.length === 0 && (
+                <div className="py-6 text-center text-sm opacity-60">No comments yet</div>
+              )}
+            </div>
+          </div>
         </div>
       </section>
     </MainLayout>
   );
 }
-
