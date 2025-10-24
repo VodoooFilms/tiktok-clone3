@@ -11,15 +11,16 @@ export default function GoogleLoginButton() {
     try {
       setLoading(true);
       
-      const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
-      console.log('Current origin:', origin);
+      // Force localhost for local testing
+      const origin = 'http://localhost:3000';
+      console.log('Debug - Using origin:', origin);
       
       // Create the OAuth2 session with Appwrite
+      console.log('Debug - Starting OAuth2 session with Appwrite...');
       await account.createOAuth2Session(
         OAuthProvider.Google,
-        `${origin}`, // Success URL (base URL)
-        `${origin}/auth/error`, // Failure URL
-        [] // Empty scopes array - let Appwrite handle default scopes
+        origin, // Success URL
+        `${origin}/auth/error` // Failure URL
       );
     } catch (error) {
       console.error("Google login error:", error);
