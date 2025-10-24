@@ -11,16 +11,8 @@ export default function GoogleLoginButton() {
     try {
       setLoading(true);
       
-      // Get the absolute production URL from Vercel environment
-      let redirectUrl;
-      if (process.env.NEXT_PUBLIC_VERCEL_URL) {
-        redirectUrl = `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`;
-      } else if (process.env.NEXT_PUBLIC_APP_URL) {
-        redirectUrl = process.env.NEXT_PUBLIC_APP_URL;
-      } else {
-        redirectUrl = window.location.origin;
-      }
-
+      // Use production URL from environment variables
+      const redirectUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
       console.log('Debug - Redirect URL:', redirectUrl);
       
       // Create the OAuth2 session with Appwrite
