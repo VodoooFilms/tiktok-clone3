@@ -79,4 +79,23 @@ export function IconLogout({ className }: Props) {
   );
 }
 
+export function IconVolumeOn({ className }: Props) {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className={className} fill="currentColor">
+      <path d="M3 9v6h4l5 4V5L7 9H3z" />
+      <path d="M16.5 12c0-1.77-1-3.29-2.5-4.03v8.06A4.5 4.5 0 0016.5 12z" />
+      <path d="M14 3.23v2.06c3.39.49 6 3.39 6 6.71s-2.61 6.22-6 6.71v2.06c4.95-.51 8.5-4.59 8.5-8.77S18.95 3.74 14 3.23z" />
+    </svg>
+  );
+}
+
+export function IconVolumeOff({ className }: Props) {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className={className} fill="currentColor">
+      <path d="M3 9v6h4l5 4V5L7 9H3z" />
+      <path d="M16 8l-1.4 1.4L17.2 12l-2.6 2.6L16 16l2.6-2.6 2.6 2.6 1.4-1.4L20 12l2.6-2.6-1.4-1.4L18.6 10.6 16 8z" />
+    </svg>
+  );
+}
+
 export default {};

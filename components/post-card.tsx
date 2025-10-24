@@ -1,9 +1,9 @@
 "use client";
 import type { Models } from "appwrite";
-import { storage, database, ID, Permission, Role, Query } from "@/libs/AppWriteClient";
+import { storage, database, ID, Permission, Role, Query, client } from "@/libs/AppWriteClient";
 import Link from "next/link";
-import { IconHome, IconUsers, IconProfile, IconPlus } from "@/components/icons";
-import { useRouter } from "next/navigation";
+import { IconHome, IconUsers, IconProfile, IconPlus, IconVolumeOn, IconVolumeOff } from "@/components/icons";
+import { useRouter, usePathname } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useUser } from "@/app/context/user";
 import { useUI } from "@/app/context/ui-context";
@@ -15,6 +15,7 @@ export default function PostCard({ doc }: Props) {
   const { user } = useUser();
   const router = useRouter();
   const { openComments, openAuth, commentsPostId, closeComments } = useUI();
+  const pathname = usePathname();
   const bucketId = process.env.NEXT_PUBLIC_BUCKET_ID as string | undefined;
   const dbId = process.env.NEXT_PUBLIC_DATABASE_ID as string | undefined;
   const likeCol = process.env.NEXT_PUBLIC_COLLECTION_ID_LIKE as string | undefined;
@@ -28,6 +29,9 @@ export default function PostCard({ doc }: Props) {
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [videoSrc, setVideoSrc] = useState<string>("");
+  const [muted, setMuted] = useState<boolean>(true);
+  const [prefMuted, setPrefMuted] = useState<boolean>(false);
+  const [isActive, setIsActive] = useState<boolean>(false);
   const [likeCount, setLikeCount] = useState<number>(0);
   const [likeDocId, setLikeDocId] = useState<string | null>(null);
   const [loadingLikes, setLoadingLikes] = useState(false);
@@ -53,6 +57,52 @@ export default function PostCard({ doc }: Props) {
     }
     setVideoSrc(src);
   }, [bucketId, doc, storage]);
+
+  // Load preferred mute state (default muted)
+  useEffect(() => {
+    try {
+      const saved = typeof window !== 'undefined' ? window.localStorage.getItem('ytk_pref_muted') : null;
+      if (saved !== null) setPrefMuted(saved === '1');
+      else setPrefMuted(true);
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    const el = videoRef.current;
+    if (!el) return;
+    try { el.muted = muted; } catch {}
+  }, [muted]);
+
+  // React to active video changes: only the active video can use preferred mute
+  useEffect(() => {
+    const el = videoRef.current;
+    if (!el) return;
+    if (isActive) {
+      setMuted(prefMuted);
+      try { el.play?.(); } catch {}
+    } else {
+      try { el.pause?.(); } catch {}
+      setMuted(true);
+    }
+  }, [isActive, prefMuted]);
+
+  // Global coordination: ensure only one video is active at a time
+  useEffect(() => {
+    const onActive = (e: any) => {
+      const activeId = String(e?.detail || "");
+      const myId = String((doc as any).$id);
+      setIsActive(activeId === myId);
+      if (activeId !== myId) {
+        try { videoRef.current?.pause?.(); } catch {}
+        setMuted(true);
+      }
+    };
+    if (typeof window !== 'undefined') {
+      window.addEventListener('app:activeVideo', onActive as EventListener);
+    }
+    return () => { if (typeof window !== 'undefined') window.removeEventListener('app:activeVideo', onActive as EventListener); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const text = String((doc as any)[textKey] ?? "");
   const createdAtRaw = String((doc as any)[createdKey] ?? "");
@@ -93,8 +143,6 @@ export default function PostCard({ doc }: Props) {
       setIsFollowing(false);
       setFollowDocId(null);
     }
-    // Ensure busy flag resets after both like and unlike flows
-    setLikeBusy(false);
   };
 
   useEffect(() => {
@@ -224,7 +272,8 @@ export default function PostCard({ doc }: Props) {
         console.error("Unlike failed", e);
       }
     } else {
-      const optimisticId = "optimistic:" + ID.unique();
+      const compositeId = `lk_${String(user.$id).slice(0,12)}_${postId.slice(0,12)}`;
+      const optimisticId = compositeId;
       setLikeDocId(optimisticId);
       setLikeCount((c) => c + 1);
       try {
@@ -239,14 +288,17 @@ export default function PostCard({ doc }: Props) {
         };
         if (likeKeys.hasIdAttr) (payload as any)[likeKeys.idKey] = `${user.$id}:${postId}`.slice(0, 30);
         try {
-          const created = await database.createDocument(dbId, likeCol, ID.unique(), payload, perms as any);
+          const created = await database.createDocument(dbId, likeCol, ID.custom(compositeId), payload, perms as any);
           setLikeDocId(created.$id);
         } catch (eWithMap: any) {
           const msg = String(eWithMap?.message || eWithMap || "");
+          if ((eWithMap && eWithMap.code === 409) || /already exists/i.test(msg)) {
+            setLikeDocId(compositeId);
+          }
           // Unknown id attribute → drop 'id' and retry once
           if (/Unknown attribute\s+"id"/i.test(msg)) {
             delete (payload as any)[likeKeys.idKey];
-            const created = await database.createDocument(dbId, likeCol, ID.unique(), payload, perms as any);
+            const created = await database.createDocument(dbId, likeCol, ID.custom(compositeId), payload, perms as any);
             setLikeDocId(created.$id);
           } else {
             throw eWithMap;
@@ -265,6 +317,28 @@ export default function PostCard({ doc }: Props) {
     }
   };
 
+  // Realtime like count updates
+  useEffect(() => {
+    if (!dbId || !likeCol) return;
+    const postId = String((doc as any).$id);
+    const unsubscribe = client.subscribe(`databases.${dbId}.collections.${likeCol}.documents`, (event: any) => {
+      try {
+        const events: string[] = event?.events || [];
+        const isCreate = events.some((e) => e.endsWith('.create'));
+        const isDelete = events.some((e) => e.endsWith('.delete'));
+        if (!isCreate && !isDelete) return;
+        const payload: any = event?.payload || {};
+        const keys = [likeKeys.postKey, 'post_id', 'postId', 'post'];
+        const payloadPostId = keys.map((k) => payload?.[k]).find(Boolean);
+        if (!payloadPostId) return;
+        if (String(payloadPostId) !== postId) return;
+        setLikeCount((c) => Math.max(0, c + (isCreate ? 1 : -1)));
+      } catch {}
+    });
+    return () => { try { unsubscribe(); } catch {} };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dbId, likeCol, doc.$id, likeKeys.postKey]);
+
   // Play/pause on visibility
   useEffect(() => {
     const el = videoRef.current;
@@ -276,12 +350,15 @@ export default function PostCard({ doc }: Props) {
           const v = entry.target as HTMLVideoElement;
           if (entry.isIntersecting && entry.intersectionRatio > 0.8) {
             try { v.play().catch(() => {}); } catch {}
+            try { if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('app:activeVideo', { detail: String((doc as any).$id) })); } catch {}
+            setIsActive(true);
             if (!fetched) {
               fetched = true;
               refreshLikes();
             }
           } else {
             try { v.pause(); } catch {}
+            setIsActive(false);
             // Close comments if this post's comments are open and user scrolled away
             try {
               const currentPostId = String((doc as any).$id);
@@ -311,7 +388,7 @@ export default function PostCard({ doc }: Props) {
                 ref={videoRef}
                 src={videoSrc}
                 className="h-full w-full object-cover rounded-[10px]"
-                muted
+                muted={muted}
                 playsInline
                 loop
                 autoPlay
@@ -322,6 +399,27 @@ export default function PostCard({ doc }: Props) {
               <div className="h-full w-full bg-neutral-900" />
             )}
           </Link>
+
+            {/* Desktop mute/unmute button */}
+            <div className="hidden md:block pointer-events-none absolute left-3 bottom-3 z-10">
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const next = !muted;
+                  try { if (typeof window !== 'undefined') window.localStorage.setItem('ytk_pref_muted', next ? '1' : '0'); } catch {}
+                  setPrefMuted(next);
+                  setMuted(next);
+                  if (!next) { try { videoRef.current?.play?.(); } catch {} }
+                }}
+                className="pointer-events-auto grid h-9 w-9 place-items-center rounded-full border border-neutral-700 bg-black/60 text-white hover:bg-black/80"
+                title={muted ? "Unmute" : "Mute"}
+                aria-label={muted ? "Unmute video" : "Mute video"}
+              >
+                {muted ? <IconVolumeOff className="h-5 w-5" /> : <IconVolumeOn className="h-5 w-5" />}
+              </button>
+            </div>
+
 
             {/* Right action rail overlay */}
             <div className="pointer-events-auto absolute inset-y-0 right-2 flex flex-col items-center justify-center gap-3">
@@ -390,16 +488,16 @@ export default function PostCard({ doc }: Props) {
             {/* Bottom mobile nav (matches left menu icons) */}
             <div className="md:hidden pointer-events-none absolute inset-x-0 bottom-0 pb-2">
               <div className="pointer-events-auto mx-auto flex max-w-[520px] items-center justify-around gap-2 rounded-2xl bg-black/40 px-3 py-2 backdrop-blur-sm">
-                <Link href="/" aria-label="For You" title="For You" className="p-2 rounded hover:bg-white/10 active:bg-white/20">
+                <Link href="/" aria-label="For You" title="For You" className={`p-2 rounded ${pathname === '/' ? 'bg-white/20' : 'hover:bg-white/10 active:bg-white/20'}`}>
                   <IconHome className="h-6 w-6 text-white" />
                 </Link>
-                <Link href="/following" aria-label="Following" title="Following" className="p-2 rounded hover:bg-white/10 active:bg-white/20">
+                <Link href="/following" aria-label="Following" title="Following" className={`p-2 rounded ${pathname?.startsWith('/following') ? 'bg-white/20' : 'hover:bg-white/10 active:bg-white/20'}`}>
                   <IconUsers className="h-6 w-6 text-white" />
                 </Link>
-                <Link href="/profile" aria-label="My Profile" title="My Profile" className="p-2 rounded hover:bg-white/10 active:bg-white/20">
+                <Link href="/profile" aria-label="My Profile" title="My Profile" className={`p-2 rounded ${pathname?.startsWith('/profile') ? 'bg-white/20' : 'hover:bg-white/10 active:bg-white/20'}`}>
                   <IconProfile className="h-6 w-6 text-white" />
                 </Link>
-                <Link href="/upload" aria-label="Upload" title="Upload" className="p-2 rounded hover:bg-white/10 active:bg-white/20">
+                <Link href="/upload" aria-label="Upload" title="Upload" className={`p-2 rounded ${pathname?.startsWith('/upload') ? 'bg-white/20' : 'hover:bg-white/10 active:bg-white/20'}`}>
                   <IconPlus className="h-6 w-6 text-white" />
                 </Link>
               </div>
@@ -449,4 +547,8 @@ export default function PostCard({ doc }: Props) {
     </article>
   );
 }
+
+
+
+
 

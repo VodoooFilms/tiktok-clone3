@@ -31,6 +31,12 @@ export default function ProfilePage() {
 
   // Load profile doc (name, bio, avatar, banner)
   const { profile, refresh: refreshProfile } = useProfile(userId);
+  const isSelf = user?.$id === String(userId);
+  const hasAvatar = useMemo(() => {
+    const any: any = profile || {};
+    const avatarId = any.avatar_file_id || any.avatarId || any.avatar || any.avatar_fileId || any.avatarUrl || any.avatar_url;
+    return Boolean(avatarId);
+  }, [profile]);
 
   const fetchPosts = async () => {
     setLoadingPosts(true);
@@ -162,6 +168,11 @@ export default function ProfilePage() {
           </div>
         </div>
         <div className="px-4 pt-12">
+          {isSelf && !hasAvatar && (
+            <div className="mb-3 rounded border border-amber-500/40 bg-amber-50/10 px-3 py-2 text-sm text-amber-200">
+              Complete your profile: add an avatar. <a href="/profile/setup" className="underline">Go to setup</a>
+            </div>
+          )}
           <div className="flex items-start justify-between">
             <div>
               <h1 className="text-xl font-semibold">
