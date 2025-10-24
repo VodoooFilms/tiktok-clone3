@@ -11,15 +11,23 @@ export default function GoogleLoginButton() {
     try {
       setLoading(true);
       
-      // Get the actual URL being used
-      const currentOrigin = window.location.origin;
-      console.log('Debug - Current origin:', currentOrigin);
+      // Get the absolute production URL from Vercel environment
+      let redirectUrl;
+      if (process.env.NEXT_PUBLIC_VERCEL_URL) {
+        redirectUrl = `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`;
+      } else if (process.env.NEXT_PUBLIC_APP_URL) {
+        redirectUrl = process.env.NEXT_PUBLIC_APP_URL;
+      } else {
+        redirectUrl = window.location.origin;
+      }
+
+      console.log('Debug - Redirect URL:', redirectUrl);
       
       // Create the OAuth2 session with Appwrite
       await account.createOAuth2Session(
         OAuthProvider.Google,
-        currentOrigin, // Success URL - always use current origin
-        `${currentOrigin}/auth/error` // Failure URL - always use current origin
+        redirectUrl, // Success URL
+        `${redirectUrl}/auth/error` // Failure URL
       );
     } catch (error) {
       console.error("Google login error:", error);
