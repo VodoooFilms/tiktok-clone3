@@ -11,11 +11,9 @@ export default function GoogleLoginButton() {
     try {
       setLoading(true);
       
-      // Prefer explicit production URL when running in production.
-      // If NEXT_PUBLIC_APP_URL is not set in the environment, fall back to the known Vercel domain
-      // to avoid accidentally passing localhost to Appwrite as the success/failure URL.
+      // Always use production URL in production, regardless of other settings
       const redirectUrl = (process.env.NODE_ENV === 'production')
-        ? (process.env.NEXT_PUBLIC_APP_URL || 'https://tiktok-clone3.vercel.app')
+        ? 'https://tiktok-clone3.vercel.app'
         : (process.env.NEXT_PUBLIC_APP_URL || window.location.origin);
       console.log('Debug - Redirect URL:', redirectUrl);
       
