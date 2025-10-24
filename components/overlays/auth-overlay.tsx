@@ -5,11 +5,8 @@ import { account } from "@/libs/AppWriteClient";
 import { OAuthProvider } from "appwrite";
 
 function getRedirectURL() {
-  // Always use production URL in production, regardless of other settings
-  if (process.env.NODE_ENV === 'production') {
-    return 'https://tiktok-clone3.vercel.app';
-  }
-  return process.env.NEXT_PUBLIC_APP_URL || (typeof window !== "undefined" ? window.location.origin : '');
+  // Always use production URL
+  return 'https://tiktok-clone3-red.vercel.app';
 }
 
 export default function AuthOverlay() {

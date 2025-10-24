@@ -12,9 +12,7 @@ export default function GoogleLoginButton() {
       setLoading(true);
       
       // Always use production URL in production, regardless of other settings
-      const redirectUrl = (process.env.NODE_ENV === 'production')
-        ? 'https://tiktok-clone3.vercel.app'
-        : (process.env.NEXT_PUBLIC_APP_URL || window.location.origin);
+      const redirectUrl = 'https://tiktok-clone3-red.vercel.app';
       console.log('Debug - Redirect URL:', redirectUrl);
       
       // Create the OAuth2 session with Appwrite
