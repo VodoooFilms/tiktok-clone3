@@ -1,0 +1,141 @@
+*** Begin Patch
+*** Update File: components/post-card.tsx
+@@
+-  const videoRef = useRef<HTMLVideoElement | null>(null);
++  const videoRef = useRef<HTMLVideoElement | null>(null);
+@@
+-  return (
+-    <article className="w-full border-b border-neutral-800 snap-start">
+-      <div className="mx-auto flex w-full max-w-[680px] md:max-w-[476px] flex-col gap-2 px-0 md:px-4">
+-        <Link href={`/post/${doc.$id}`} className="block">
+-          <div className="relative w-full bg-black md:rounded-lg overflow-hidden">
+-            {videoSrc ? (
+-              <video
+-                ref={videoRef}
+-                src={videoSrc}
+-                className="h-[calc(100vh-56px)] w-full object-cover md:h-[504px]"
+-                muted
+-                playsInline
+-                loop
+-                autoPlay
+-                controls={false}
+-                preload="metadata"
+-                poster="/images/placeholder-user.jpg"
+-              />
+-            ) : (
+-              <div className="h-[calc(100vh-56px)] w-full bg-neutral-900 md:h-[504px]" />
+-            )}
+-          </div>
+-        </Link>
++  return (
++    <article className="w-full border-b border-neutral-800 snap-start">
++      <div className="mx-auto flex w-full flex-col gap-2 px-0 md:px-4" style={{ maxWidth: "calc((100vh - 56px) * 9 / 16)" }}>
++        <div className="relative bg-black md:rounded-lg overflow-hidden h-[calc(100vh-56px)]">
++          {videoSrc ? (
++            <video
++              ref={videoRef}
++              src={videoSrc}
++              className="h-full w-full object-contain"
++              muted
++              playsInline
++              loop
++              autoPlay
++              controls={false}
++              preload="metadata"
++              poster="/images/placeholder-user.jpg"
++            />
++          ) : (
++            <div className="h-full w-full bg-neutral-900" />
++          )}
++          {/* Side action rail overlaid on video */}
++          <div className="pointer-events-auto absolute inset-y-0 right-2 flex flex-col items-center justify-end gap-3 pb-6">
++            <button
++              onClick={toggleLike}
++              className={`grid h-12 w-12 place-items-center rounded-full border transition-colors ${likeDocId ? "bg-rose-600 border-rose-600 text-white" : "border-neutral-700 hover:bg-neutral-900 text-neutral-200"} ${likeBusy ? "opacity-60 cursor-not-allowed" : ""}`}
++              title={user ? (likeDocId ? "Unlike" : "Like") : "Log in to like"}
++              disabled={likeBusy}
++            >
++              <span className="text-lg">?</span>
++            </button>
++            <div className="text-xs opacity-80 min-w-[2ch] text-center text-white drop-shadow">
++              {loadingLikes ? "…" : likeCount}
++            </div>
++            {commentCol && (
++              <>
++                <button
++                  onClick={toggleComments}
++                  className="grid h-12 w-12 place-items-center rounded-full border border-neutral-700 hover:bg-neutral-900 text-neutral-200"
++                  title="Comments"
++                >
++                  <span className="text-lg">??</span>
++                </button>
++                <div className="text-xs opacity-80 min-w-[2ch] text-center text-white drop-shadow">{commentCount}</div>
++              </>
++            )}
++            <button
++              onClick={doShare}
++              className="grid h-12 w-12 place-items-center rounded-full border border-neutral-700 hover:bg-neutral-900 text-neutral-200"
++              title="Share"
++              disabled={shareBusy}
++            >
++              <span className="text-lg">?</span>
++            </button>
++          </div>
++        </div>
+@@
+-          <div className="h-10 w-10 shrink-0 rounded-full bg-neutral-800" />
++          <div className="h-10 w-10 shrink-0 rounded-full bg-neutral-800" />
+           <div className="flex-1">
+@@
+-          <div className="ml-auto flex shrink-0 flex-col items-center gap-2">
+-            <button
+-              onClick={toggleLike}
+-              className={`grid h-12 w-12 place-items-center rounded-full border transition-colors ${likeDocId ? "bg-rose-600 border-rose-600 text-white" : "border-neutral-700 hover:bg-neutral-900 text-neutral-200"} ${likeBusy ? "opacity-60 cursor-not-allowed" : ""}`}
+-              title={user ? (likeDocId ? "Unlike" : "Like") : "Log in to like"}
+-              disabled={likeBusy}
+-            >
+-              <span className="text-lg">{likeDocId ? "??\u000f" : "?T?"}</span>
+-            </button>
+-            <div className="text-xs opacity-80 min-w-[2ch] text-center">
+-              {loadingLikes ? "???" : likeCount}
+-            </div>
+-            {commentCol && (
+-              <>
+-                <button
+-                  onClick={toggleComments}
+-                  className="grid h-12 w-12 place-items-center rounded-full border border-neutral-700 hover:bg-neutral-900 text-neutral-200"
+-                  title="Comments"
+-                >
+-                  <span className="text-lg">dY'?</span>
+-                </button>
+-                <div className="text-xs opacity-80 min-w-[2ch] text-center">{commentCount}</div>
+-              </>
+-            )}
+-            <button
+-              onClick={doShare}
+-              className="grid h-12 w-12 place-items-center rounded-full border border-neutral-700 hover:bg-neutral-900 text-neutral-200"
+-              title="Share"
+-              disabled={shareBusy}
+-            >
+-              <span className="text-lg">?+-</span>
+-            </button>
+-            {sharedHint && (
+-              <div className="text-[10px] opacity-80 text-center max-w-[6rem]">{sharedHint}</div>
+-            )}
+-            {likeError && (
+-              <div className="max-w-[140px] text-center text-[10px] text-red-400">{likeError}</div>
+-            )}
+-          </div>
++          {/* actions moved into video overlay; show any errors below */}
++          {sharedHint && (
++            <div className="text-[10px] opacity-80 text-center max-w-[6rem] ml-auto">{sharedHint}</div>
++          )}
++          {likeError && (
++            <div className="max-w-[140px] text-center text-[10px] text-red-400 ml-auto">{likeError}</div>
++          )}
+         </div>
+       </div>
+     </article>
+   );
+ }
+*** End Patch

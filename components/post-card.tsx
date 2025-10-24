@@ -20,7 +20,15 @@ export default function PostCard({ doc }: Props) {
   const dbId = process.env.NEXT_PUBLIC_DATABASE_ID as string | undefined;
   const likeCol = process.env.NEXT_PUBLIC_COLLECTION_ID_LIKE as string | undefined;
   const followCol = process.env.NEXT_PUBLIC_COLLECTION_ID_FOLLOW as string | undefined;
-  const get = (keys: string[]) => keys.find((k) => k in (doc as any));
+  const get = (keys: string[]) => {
+    const obj: any = doc as any;
+    if (!obj || (typeof obj !== "object" && typeof obj !== "function")) return undefined;
+    try {
+      return keys.find((k) => k in obj);
+    } catch {
+      return undefined;
+    }
+  };
 
   const videoUrlKey = get(["video_url", "videoUrl"]);
   const videoIdKey = get(["video_id", "videoId", "file_id", "fileId"]);
@@ -482,7 +490,7 @@ export default function PostCard({ doc }: Props) {
               </button>
               {/* Share */}
               <button
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); const shareUrl = typeof window !== 'undefined' ? `${window.location.origin}/post/${(doc as any).$id}` : ''; (async () => { try { if (navigator.share) await navigator.share({ url: shareUrl }); else if (navigator.clipboard) await navigator.clipboard.writeText(shareUrl); } catch {} })(); }}
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); openShare(String((doc as any).$id)); }}
                 className="grid h-12 w-12 place-items-center rounded-full border border-neutral-700 hover:bg-neutral-900 text-neutral-200"
                 title="Share"
                 aria-label="Share post"
@@ -553,8 +561,3 @@ export default function PostCard({ doc }: Props) {
     </article>
   );
 }
-
-
-
-
-

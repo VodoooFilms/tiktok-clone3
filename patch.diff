@@ -1,0 +1,52 @@
+*** Begin Patch
+*** Update File: app/context/user.tsx
+@@
+-import { account, client } from "@/libs/AppWriteClient";
++import { account, client, database, ID, Permission, Role, Query } from "@/libs/AppWriteClient";
+@@
+   const value = useMemo<UserContextValue>(
+     () => ({ user, loading, refresh, loginAnonymous, logout }),
+     [user, loading]
+   );
+ 
++  // Auto-create a Profile document on first non-guest login
++  useEffect(() => {
++    (async () => {
++      try {
++        if (!user) return;
++        const isGuest = !(user as any).email && !(user as any).phone;
++        if (isGuest) return;
++        const dbId = process.env.NEXT_PUBLIC_DATABASE_ID as string | undefined;
++        const profileCol = process.env.NEXT_PUBLIC_COLLECTION_ID_PROFILE as string | undefined;
++        if (!dbId || !profileCol) return;
++        // Check if a profile already exists using common keys
++        const keys = ["user_id", "userid", "userId"];
++        for (const key of keys) {
++          try {
++            const r: any = await database.listDocuments(dbId, profileCol, [
++              Query.equal(key as any, user.),
++              Query.limit(1),
++            ] as any);
++            if (r.total > 0) return; // found existing profile
++          } catch {}
++        }
++        // Create a basic profile
++        const displayName = user.name || (user.email ? String(user.email).split("@")[0] : "");
++        const payload: any = { userid: user., name: displayName, bio: "" };
++        const perms = [
++          Permission.read(Role.any()),
++          Permission.update(Role.user(user.)),
++          Permission.delete(Role.user(user.)),
++        ];
++        try {
++          await database.createDocument(dbId, profileCol, ID.unique(), payload, perms as any);
++        } catch {}
++      } catch {
++        // best-effort only
++      }
++    })();
++  }, [user?.]);
++
+   return <UserContext.Provider value={value}>{children}</UserContext.Provider>;
+ }
+*** End Patch

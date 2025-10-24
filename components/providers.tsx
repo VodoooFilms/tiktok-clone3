@@ -1,11 +1,14 @@
 "use client";
 import { UIProvider } from "@/app/context/ui-context";
 import { UserProvider } from "@/app/context/user";
+import { AuthProvider } from "@/app/context/auth-context";
 
 export default function Providers({ children }: { children: React.ReactNode }) {
   return (
     <UIProvider>
-      <UserProvider>{children}</UserProvider>
+      <AuthProvider>
+        <UserProvider>{children}</UserProvider>
+      </AuthProvider>
     </UIProvider>
   );
 }

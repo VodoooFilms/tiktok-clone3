@@ -1,0 +1,11 @@
+UX: move Share into posts; People page; auto-profile; following counts; tabs
+
+- PostCard: add Share button (Web Share API / clipboard fallback) + poster image
+- ProfileActions: remove Share; show follower/following counts
+- People: new /people list with Follow and "Add sample post" (no created_at)
+- SideNav: add People link
+- Profile page: client component + React.use() for params
+- Feed: For You | Following tabs in home and /following
+- User context: auto-create Profile for non-guest on first login
+- Auth overlay: add "Copy my ID" and open profile
+- Sample post payload: drop unknown created_at
