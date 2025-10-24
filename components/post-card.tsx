@@ -106,7 +106,7 @@ export default function PostCard({ doc }: Props) {
 
   const text = String((doc as any)[textKey] ?? "");
   const createdAtRaw = String((doc as any)[createdKey] ?? "");
-  const createdAt = createdAtRaw ? new Date(createdAtRaw).toLocaleString() : "";
+  const createdAt = createdAtRaw ? new Date(createdAtRaw).toISOString() : "";
 
   const authorKey = get(["user_id", "userid", "userId", "author_id", "authorId", "owner_id", "ownerId", "user", "author", "uid"]);
   const authorId: string | null = authorKey && (doc as any)[authorKey] ? String((doc as any)[authorKey]) : null;

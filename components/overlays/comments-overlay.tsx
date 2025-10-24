@@ -197,7 +197,7 @@ export default function CommentsOverlay() {
                     <div className="flex items-center gap-2 text-xs text-neutral-400">
                       <span className="truncate">{(c as any).user_id || "user"}</span>
                       <span>•</span>
-                      <span>{new Date(String((c as any).created_at || (c as any).$createdAt)).toLocaleString()}</span>
+                      <span>{new Date(String((c as any).created_at || (c as any).$createdAt)).toISOString()}</span>
                     </div>
                     <div className="mt-0.5 break-words text-sm leading-relaxed text-neutral-100">{(c as any).text}</div>
                   </div>
