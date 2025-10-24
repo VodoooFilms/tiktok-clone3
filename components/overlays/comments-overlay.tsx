@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useEffect, useMemo, useState } from "react";
 import { useUI } from "@/app/context/ui-context";
 import { useUser } from "@/app/context/user";
@@ -168,16 +168,16 @@ export default function CommentsOverlay() {
       {/* Backdrop for clicks to close on desktop */}
       <div className="pointer-events-auto hidden flex-1 bg-black/30 md:block" onClick={closeComments} />
       <aside
-        className="pointer-events-auto flex h-full w-full max-w-[420px] flex-col border-l border-neutral-800 bg-neutral-950 text-white"
+        className="pointer-events-auto flex h-full w-full md:max-w-[420px] flex-col border-l border-neutral-800 bg-neutral-950 text-white"
         role="dialog"
         aria-label="Comments"
       >
-        <div className="flex items-center justify-between border-b border-neutral-800 px-4 py-3">
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-neutral-800 px-4 py-3 bg-neutral-950/80 backdrop-blur supports-[backdrop-filter]:bg-neutral-950/60">
           <div className="text-sm font-medium">Comments{typeof total === "number" ? ` (${total})` : ""}</div>
-          <button onClick={closeComments} aria-label="Close comments" className="rounded px-2 py-1 text-sm opacity-80 hover:opacity-100">✕</button>
+          <button onClick={closeComments} aria-label="Close comments" className="rounded px-2 py-1 text-base md:text-sm opacity-80 hover:opacity-100">✕</button>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto p-4">
+        <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-4">
           {loading && <div className="py-6 text-center text-sm text-neutral-400">Loading...</div>}
           {error && <div className="py-6 text-center text-sm text-red-400">{error}</div>}
           {!loading && !error && comments.length === 0 && (
@@ -205,7 +205,7 @@ export default function CommentsOverlay() {
                       <button
                         onClick={() => toggleCommentLike(cid)}
                         disabled={!user || busy}
-                        className={`grid h-7 w-7 place-items-center rounded-full border text-xs ${liked ? "bg-rose-600 border-rose-600 text-white" : "border-neutral-700 hover:bg-neutral-900 text-neutral-200"} ${busy ? "opacity-60 cursor-not-allowed" : ""}`}
+                        className={`grid h-9 w-9 md:h-7 md:w-7 place-items-center rounded-full border text-xs ${liked ? "bg-rose-600 border-rose-600 text-white" : "border-neutral-700 hover:bg-neutral-900 text-neutral-200"} ${busy ? "opacity-60 cursor-not-allowed" : ""}`}
                         title={!user ? "Log in to like" : liked ? "Unlike" : "Like"}
                         aria-label={!user ? "Log in to like comment" : liked ? "Unlike comment" : "Like comment"}
                       >
@@ -220,23 +220,21 @@ export default function CommentsOverlay() {
           </div>
         </div>
 
-        <form onSubmit={submit} className="flex items-center gap-2 border-t border-neutral-800 p-3">
+        <form onSubmit={submit} className="sticky bottom-0 z-10 flex items-center gap-2 border-t border-neutral-800 p-3 bg-neutral-950/80 backdrop-blur supports-[backdrop-filter]:bg-neutral-950/60" style={{ paddingBottom: "max(env(safe-area-inset-bottom), 0.75rem)" }}>
           <input
             value={text}
             onChange={(e) => setText(e.target.value)}
             placeholder={user ? "Add a comment" : "Log in to comment"}
             disabled={!user}
-            className="flex-1 rounded-md border border-neutral-800 bg-black/60 px-3 py-2 text-sm disabled:opacity-60"
+            className="flex-1 rounded-lg border border-neutral-800 bg-black/60 px-3 py-3 text-base md:py-2 md:text-sm disabled:opacity-60"
             aria-label="Comment text"
           />
           <button
             type="submit"
             disabled={!user || !text.trim() || posting}
-            className="rounded-md bg-emerald-600 px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-lg bg-emerald-600 px-4 py-3 text-base md:text-sm md:py-2 disabled:cursor-not-allowed disabled:opacity-60"
             aria-label="Post comment"
-          >
-            Post
-          </button>
+          >\n            {posting ? "Posting�" : "Post"}\n          </button>
         </form>
       </aside>
 
@@ -251,3 +249,12 @@ export default function CommentsOverlay() {
     </div>
   );
 }
+
+
+
+
+
+
+
+
+

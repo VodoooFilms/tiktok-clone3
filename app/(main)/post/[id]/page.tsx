@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useParams } from "next/navigation";
@@ -245,7 +245,7 @@ export default function PostDetailPage() {
             <div className="flex items-center justify-between rounded border border-neutral-800 p-2">
               <div className="flex items-center gap-3">
                 <img src="/images/placeholder-user.jpg" alt="creator" className="h-10 w-10 rounded-full object-cover border border-neutral-700" />
-                <div className="text-sm">@{authorId}</div>
+                <div className="text-sm leading-relaxed break-words">@{authorId}</div>
               </div>
               <div className="flex items-center gap-2">
                 {user?.$id === authorId && (
@@ -267,7 +267,7 @@ export default function PostDetailPage() {
             </div>
           )}
           {createdAt && <div className="text-xs text-neutral-400">{createdAt}</div>}
-          {text && <p className="text-sm">{text}</p>}
+          {text && <p className="text-sm leading-relaxed break-words">{text}</p>}
           {caption && <p className="text-sm text-neutral-400">{caption}</p>}
           <div className="mt-2 flex items-center gap-3">
             <button
@@ -280,17 +280,17 @@ export default function PostDetailPage() {
           </div>
           <div className="mt-4">
             <h2 className="mb-2 text-sm font-medium opacity-80">Comments</h2>
-            <form onSubmit={submitComment} className="mb-3 flex gap-2">
+            <form onSubmit={submitComment} className="mb-3 flex flex-col gap-2 sm:flex-row">
               <input
                 value={commentText}
                 onChange={(e) => setCommentText(e.target.value)}
                 placeholder="Add a comment"
-                className="flex-1 rounded border border-neutral-800 bg-black px-3 py-2 text-sm"
+                className="flex-1 rounded-lg border border-neutral-800 bg-black px-3 py-3 text-base sm:text-sm sm:py-2"
               />
               <button
                 type="submit"
                 disabled={postingComment || !commentText.trim()}
-                className="rounded bg-emerald-600 px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+                className="w-full sm:w-auto rounded-lg bg-emerald-600 px-4 py-3 sm:py-2 text-base sm:text-sm disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {postingComment ? "Posting…" : "Post"}
               </button>
@@ -303,7 +303,7 @@ export default function PostDetailPage() {
                     <span>·</span>
                     <span>{new Date(String((c as any).created_at || c.$createdAt)).toLocaleString()}</span>
                   </div>
-                  <div className="text-sm">{(c as any).text}</div>
+                  <div className="text-sm leading-relaxed break-words">{(c as any).text}</div>
                 </div>
               ))}
               {comments.length === 0 && (
@@ -316,3 +316,5 @@ export default function PostDetailPage() {
     </MainLayout>
   );
 }
+
+

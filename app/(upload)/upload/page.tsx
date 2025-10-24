@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import UploadLayout from "@/app/layouts/UploadLayout";
 import { useState, useMemo, useRef } from "react";
 import { useUser } from "@/app/context/user";
@@ -13,6 +13,7 @@ export default function UploadPage() {
   const [log, setLog] = useState<string>("");
   const [progress, setProgress] = useState<number | null>(null);
   const [error, setError] = useState<string>("");
+  const [showFx, setShowFx] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   const previewUrl = useMemo(() => (file ? URL.createObjectURL(file) : ""), [file]);
@@ -108,9 +109,9 @@ export default function UploadPage() {
       <section className="grid grid-cols-1 gap-6 p-4 md:grid-cols-2">
         <div>
           <div className="flex w-full justify-center">
-            <div className="w-56 md:w-64 lg:w-72 overflow-hidden rounded border border-neutral-800 bg-neutral-900">
+            <div className="relative max-w-[80vw] sm:max-w-[16rem] md:max-w-[18rem] lg:max-w-[22rem] w-full rounded-2xl border border-neutral-800 bg-gradient-to-b from-neutral-950 to-neutral-900 shadow-xl ring-1 ring-black/10 overflow-hidden">
               {previewUrl ? (
-                <video ref={videoRef} src={previewUrl} className="aspect-[9/16] w-full object-cover rounded-[10px]" muted playsInline loop controls />
+                <video ref={videoRef} src={previewUrl} className="aspect-[9/16] w-full object-cover rounded-xl" muted playsInline loop controls />
               ) : (
                 <div className="aspect-[9/16] w-full grid place-items-center text-sm text-neutral-400">
                   Select a video to preview
@@ -119,21 +120,22 @@ export default function UploadPage() {
             </div>
           </div>
           {submitting && (
-            <div className="mt-2 h-1 w-full overflow-hidden rounded bg-neutral-800">
+            <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-neutral-800">
               <div className="h-full w-1/2 animate-pulse bg-emerald-600"></div>
             </div>
           )}
           {error && <div className="mt-2 text-sm text-red-400">{error}</div>}
         </div>
-        <form onSubmit={onSubmit} className="flex flex-col gap-3">
+        <form onSubmit={onSubmit} className="flex flex-col gap-4">
           <label className="text-sm">
             Text (optional)
-            <input
+            <textarea
               value={text}
               onChange={(e) => setText(e.target.value)}
-              className="mt-1 w-full rounded border border-neutral-800 bg-black px-3 py-2 text-white placeholder-neutral-500"
+              className="mt-1 w-full resize-y rounded-xl border border-neutral-800 bg-neutral-950 px-3 py-2 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
               placeholder="Brief description (max 150 chars)"
               maxLength={150}
+              rows={3}
             />
           </label>
           <label className="text-sm">
@@ -142,11 +144,11 @@ export default function UploadPage() {
               type="file"
               accept="video/*"
               onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-              className="mt-1 w-full rounded border border-neutral-800 bg-black file:mr-4 file:rounded file:border-0 file:bg-neutral-100 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-black hover:file:bg-neutral-200"
+              className="mt-1 w-full rounded-xl border border-dashed border-neutral-700 bg-neutral-950 px-3 py-2 text-white file:mr-4 file:rounded-lg file:border-0 file:bg-emerald-600 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
               required
             />
           </label>
-          <div className="mt-2 flex gap-2">
+          <div className="mt-3 flex flex-col items-stretch justify-center gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-center">
             <button
               type="button"
               onClick={() => {
@@ -154,14 +156,21 @@ export default function UploadPage() {
                 setFile(null);
                 try { if (videoRef.current) videoRef.current.load(); } catch {}
               }}
-              className="rounded border border-neutral-800 px-3 py-2 text-white hover:bg-neutral-900"
+              className="w-full sm:w-auto rounded-xl border border-neutral-800 bg-neutral-950 px-4 py-2 text-white hover:bg-neutral-900 active:bg-neutral-900/80"
             >
               Discard
             </button>
             <button
+              type="button"
+              onClick={() => setShowFx(true)}
+              className="w-full sm:w-auto rounded-xl border border-emerald-700/40 bg-emerald-600/10 px-4 py-2 text-emerald-300 hover:bg-emerald-600/20 active:bg-emerald-600/25"
+            >
+              Apply AI FX to this video
+            </button>
+            <button
               type="submit"
               disabled={submitting || !file}
-              className="rounded bg-emerald-600 px-3 py-2 text-white disabled:cursor-not-allowed disabled:opacity-60"
+              className="w-full sm:w-auto rounded-2xl bg-emerald-600 px-6 md:px-8 py-2.5 text-white font-semibold shadow-sm hover:bg-emerald-500 active:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {submitting ? "Posting…" : "Post"}
             </button>
@@ -173,6 +182,28 @@ export default function UploadPage() {
           )}
         </form>
       </section>
+      {showFx && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4">
+          <div className="w-full max-w-sm rounded-2xl border border-neutral-800 bg-neutral-950 p-4 shadow-2xl">
+            <div className="mb-2 text-base font-semibold text-white">AI FX</div>
+            <p className="text-sm text-neutral-300">For Pro Users, subscribe</p>
+            <div className="mt-4 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowFx(false)}
+                className="rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-sm text-white hover:bg-neutral-800"
+                aria-label="Close"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </UploadLayout>
   );
 }
+
+
+
+
