@@ -10,9 +10,10 @@ export default function MainLayout({
   return (
     <>
       <TopNav />
-      <div className="mx-auto flex w-full max-w-7xl lg:px-2.5 px-0">
+      {/* Reserve space for fixed top nav and left sidebar on md+ */}
+      <div className="w-full pt-14 md:pt-16 md:pl-60">
         <SideNavMain />
-        <main className="min-h-screen flex-1">{children}</main>
+        <main className="min-h-screen">{children}</main>
       </div>
     </>
   );

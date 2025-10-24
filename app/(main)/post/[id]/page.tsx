@@ -1,13 +1,16 @@
 "use client";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useParams } from "next/navigation";
 import type { Models } from "appwrite";
 import { database, storage, ID, Permission, Role, Query } from "@/libs/AppWriteClient";
 import MainLayout from "@/app/layouts/MainLayout";
 import { useUser } from "@/app/context/user";
+import Link from "next/link";
 
 export default function PostDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
   const [doc, setDoc] = useState<Models.Document | null>(null);
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState(true);
@@ -28,6 +31,7 @@ export default function PostDetailPage() {
   const [comments, setComments] = useState<Models.Document[]>([]);
   const [commentText, setCommentText] = useState("");
   const [postingComment, setPostingComment] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -109,15 +113,27 @@ export default function PostDetailPage() {
       const payload: any = {
         user_id: user.$id,
         post_id: postId,
-        id: `${user.$id}:${postId}`.slice(0, 30),
       };
-      const d = await database.createDocument(databaseId, likeCol, ID.unique(), payload, perms as any);
+      // Some schemas require a custom "id" attribute; include it if configured
+      if (likeKeys.hasIdAttr && likeKeys.idKey) {
+        payload[likeKeys.idKey] = `${user.$id}:${postId}`.slice(0, 30);
+      }
+      // Use deterministic $id for idempotency (one like per user+post)
+      const compositeId = `lk_${user.$id.slice(0,12)}_${postId.slice(0,12)}`;
+      const d = await database.createDocument(databaseId, likeCol, ID.custom(compositeId), payload, perms as any);
       setLikeDocId(d.$id);
     } catch (e: any) {
       try {
-        const msg = String(e?.message || e || "");
-        let payload: any = { user_id: user.$id, post_id: postId };
-        const d = await database.createDocument(databaseId, likeCol, ID.unique(), payload, perms as any);
+        const msg = String(e?.message || e || "").toLowerCase();
+        // If conflict (already exists), treat as liked
+        if ((e && e.code === 409) || msg.includes("already exists")) {
+          setLikeDocId(`lk_${user.$id.slice(0,12)}_${postId.slice(0,12)}`);
+          return;
+        }
+        // If schema rejects custom id attribute, retry without it
+        const payload: any = { user_id: user.$id, post_id: postId };
+        const compositeId = `lk_${user.$id.slice(0,12)}_${postId.slice(0,12)}`;
+        const d = await database.createDocument(databaseId, likeCol, ID.custom(compositeId), payload, perms as any);
         setLikeDocId(d.$id);
       } catch (e2) {
         setLikeDocId(null);
@@ -159,12 +175,25 @@ export default function PostDetailPage() {
   let text = "";
   let caption = "";
   let createdAt = "";
+  let authorId: string | null = null;
 
   if (doc) {
     const videoUrlKey = get(doc as any, ["video_url", "videoUrl"]);
     const videoIdKey = get(doc as any, ["video_id", "videoId", "file_id", "fileId"]);
     const textKey = get(doc as any, ["text", "caption", "description"]) || "text";
     const createdKey = get(doc as any, ["created_at", "createdAt", "$createdAt"]) || "$createdAt";
+    const authorKey = get(doc as any, [
+      "user_id",
+      "userid",
+      "userId",
+      "author_id",
+      "authorId",
+      "owner_id",
+      "ownerId",
+      "user",
+      "author",
+      "uid",
+    ]) || "user_id";
 
     if (videoUrlKey) videoSrc = String((doc as any)[videoUrlKey]);
     else if (videoIdKey && bucketId) {
@@ -176,7 +205,25 @@ export default function PostDetailPage() {
     caption = String((doc as any).caption ?? "");
     const createdRaw = String((doc as any)[createdKey] ?? "");
     createdAt = createdRaw ? new Date(createdRaw).toLocaleString() : "";
+    authorId = (doc as any)[authorKey] ? String((doc as any)[authorKey]) : null;
   }
+
+  const onDeletePost = async () => {
+    if (!doc) return;
+    if (!user || (authorId && user.$id !== authorId)) return;
+    const confirm = typeof window !== "undefined" ? window.confirm("Delete this post? This cannot be undone.") : true;
+    if (!confirm) return;
+    setDeleting(true);
+    try {
+      await database.deleteDocument(databaseId, collectionId, String(id));
+      router.replace("/");
+    } catch (e: any) {
+      console.error("Delete failed", e);
+      if (typeof window !== "undefined") alert(`Delete failed: ${String(e?.message || e)}`);
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   return (
     <MainLayout>
@@ -186,7 +233,7 @@ export default function PostDetailPage() {
           {error && <div className="p-4 text-sm text-red-400">{error}</div>}
           {!loading && !error && (
             videoSrc ? (
-              <video src={videoSrc} className="aspect-[9/16] w-full object-contain" controls />
+              <video src={videoSrc} className="aspect-[9/16] w-full object-cover rounded-[10px]" controls />
             ) : (
               <div className="aspect-[9/16] w-full bg-neutral-900" />
             )
@@ -194,6 +241,31 @@ export default function PostDetailPage() {
         </div>
         <div className="flex flex-col gap-3">
           <h1 className="text-lg font-semibold">Post</h1>
+          {authorId && (
+            <div className="flex items-center justify-between rounded border border-neutral-800 p-2">
+              <div className="flex items-center gap-3">
+                <img src="/images/placeholder-user.jpg" alt="creator" className="h-10 w-10 rounded-full object-cover border border-neutral-700" />
+                <div className="text-sm">@{authorId}</div>
+              </div>
+              <div className="flex items-center gap-2">
+                {user?.$id === authorId && (
+                  <button
+                    onClick={onDeletePost}
+                    disabled={deleting}
+                    className="rounded bg-red-600 px-3 py-1.5 text-sm text-white hover:bg-red-500 disabled:opacity-60"
+                  >
+                    {deleting ? "Deleting…" : "Delete"}
+                  </button>
+                )}
+                <Link
+                  href={`/profile/${authorId}`}
+                  className="rounded bg-emerald-600 px-3 py-1.5 text-sm text-white hover:bg-emerald-500"
+                >
+                  Visit profile
+                </Link>
+              </div>
+            </div>
+          )}
           {createdAt && <div className="text-xs text-neutral-400">{createdAt}</div>}
           {text && <p className="text-sm">{text}</p>}
           {caption && <p className="text-sm text-neutral-400">{caption}</p>}

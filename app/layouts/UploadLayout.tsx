@@ -1,4 +1,5 @@
 import TopNav from "./includes/TopNav";
+import SideNavMain from "./includes/SideNavMain";
 
 export default function UploadLayout({
   children,
@@ -6,9 +7,13 @@ export default function UploadLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen bg-black text-white">
+    <>
       <TopNav />
-      <div className="mx-auto w-full max-w-7xl px-2">{children}</div>
-    </div>
+      {/* Match main layout spacing and sidebar */}
+      <div className="w-full pt-14 md:pt-16 md:pl-60">
+        <SideNavMain />
+        <main className="min-h-screen">{children}</main>
+      </div>
+    </>
   );
 }

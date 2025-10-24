@@ -2,16 +2,22 @@
 import type { Models } from "appwrite";
 import { storage, database, ID, Permission, Role, Query } from "@/libs/AppWriteClient";
 import Link from "next/link";
+import { IconHome, IconUsers, IconUserCircle, IconPlus } from "@/components/icons";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useUser } from "@/app/context/user";
+import { useUI } from "@/app/context/ui-context";
 
 type Props = { doc: Models.Document };
 
 export default function PostCard({ doc }: Props) {
   const { user } = useUser();
+  const router = useRouter();
+  const { openComments, openAuth, commentsPostId, closeComments } = useUI();
   const bucketId = process.env.NEXT_PUBLIC_BUCKET_ID as string | undefined;
   const dbId = process.env.NEXT_PUBLIC_DATABASE_ID as string | undefined;
   const likeCol = process.env.NEXT_PUBLIC_COLLECTION_ID_LIKE as string | undefined;
+  const followCol = process.env.NEXT_PUBLIC_COLLECTION_ID_FOLLOW as string | undefined;
   const get = (keys: string[]) => keys.find((k) => k in (doc as any));
 
   const videoUrlKey = get(["video_url", "videoUrl"]);
@@ -26,6 +32,10 @@ export default function PostCard({ doc }: Props) {
   const [loadingLikes, setLoadingLikes] = useState(false);
   const [likeBusy, setLikeBusy] = useState(false);
   const [likeError, setLikeError] = useState<string>("");
+  const [isFollowing, setIsFollowing] = useState<boolean>(false);
+  const [followDocId, setFollowDocId] = useState<string | null>(null);
+  const [followBusy, setFollowBusy] = useState(false);
+  const [followFlash, setFollowFlash] = useState(false);
 
   // Detect Like schema (optional)
   const [likeKeys, setLikeKeys] = useState<{ userKey: string; postKey: string; idKey: string; hasIdAttr: boolean }>(
@@ -46,6 +56,78 @@ export default function PostCard({ doc }: Props) {
   const text = String((doc as any)[textKey] ?? "");
   const createdAtRaw = String((doc as any)[createdKey] ?? "");
   const createdAt = createdAtRaw ? new Date(createdAtRaw).toLocaleString() : "";
+
+  const authorKey = get(["user_id", "userid", "userId", "author_id", "authorId", "owner_id", "ownerId", "user", "author", "uid"]);
+  const authorId: string | null = authorKey && (doc as any)[authorKey] ? String((doc as any)[authorKey]) : null;
+
+  const refreshFollow = async () => {
+    if (!dbId || !followCol || !user || !authorId || user.$id === authorId) {
+      setIsFollowing(false);
+      setFollowDocId(null);
+      return;
+    }
+    try {
+      const res = await database.listDocuments(dbId, followCol, [
+        Query.equal("follower_id", user.$id),
+        Query.equal("following_id", String(authorId)),
+        Query.limit(1),
+      ] as any);
+      const found = res.documents[0];
+      setIsFollowing(Boolean(found));
+      setFollowDocId(found?.$id || null);
+    } catch {
+      setIsFollowing(false);
+      setFollowDocId(null);
+    }
+  };
+
+  useEffect(() => {
+    refreshFollow();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.$id, dbId, followCol, authorId]);
+
+  const toggleFollowAuthor = async () => {
+    if (!authorId || user?.$id === authorId) return;
+    if (!user) { openAuth(); return; }
+    if (!dbId || !followCol || followBusy) return;
+    setFollowBusy(true);
+    try {
+      if (followDocId) {
+        await database.deleteDocument(dbId, followCol, followDocId);
+        setIsFollowing(false);
+        setFollowDocId(null);
+      } else {
+        const payload: any = { follower_id: user.$id, following_id: String(authorId) };
+        const perms = [
+          Permission.read(Role.any()),
+          Permission.update(Role.user(user.$id)),
+          Permission.delete(Role.user(user.$id)),
+        ];
+        // Deterministic composite ID ensures idempotency even if reads are restricted
+        const compositeId = `f_${user.$id.slice(0,12)}_${String(authorId).slice(0,12)}`;
+        try {
+          const created = await database.createDocument(dbId, followCol, ID.custom(compositeId), payload, perms as any);
+          setIsFollowing(true);
+          setFollowDocId(created.$id);
+          setFollowFlash(true);
+          setTimeout(() => setFollowFlash(false), 900);
+        } catch (e: any) {
+          // If document already exists, treat it as followed and store known ID for future delete
+          const msg = String(e?.message || "").toLowerCase();
+          if ((e && e.code === 409) || msg.includes("already exists")) {
+            setIsFollowing(true);
+            setFollowDocId(compositeId);
+            setFollowFlash(true);
+            setTimeout(() => setFollowFlash(false), 900);
+          } else {
+            throw e;
+          }
+        }
+      }
+    } finally {
+      setFollowBusy(false);
+    }
+  };
 
   // Fetch likes count and whether current user liked
   const refreshLikes = async () => {
@@ -82,6 +164,7 @@ export default function PostCard({ doc }: Props) {
   useEffect(() => {
     (async () => {
       try {
+        if (process.env.NODE_ENV === 'production') return;
         if (!dbId || !likeCol) return;
         const url = new URL(window.location.origin + "/api/admin/collection");
         url.searchParams.set("db", String(dbId));
@@ -183,6 +266,13 @@ export default function PostCard({ doc }: Props) {
             }
           } else {
             try { v.pause(); } catch {}
+            // Close comments if this post's comments are open and user scrolled away
+            try {
+              const currentPostId = String((doc as any).$id);
+              if (commentsPostId && commentsPostId === currentPostId) {
+                closeComments();
+              }
+            } catch {}
           }
         });
       },
@@ -190,18 +280,21 @@ export default function PostCard({ doc }: Props) {
     );
     obs.observe(el);
     return () => obs.disconnect();
-  }, [videoSrc]);
+  }, [videoSrc, commentsPostId, closeComments, doc.$id]);
 
   return (
-    <article className="w-full border-b border-neutral-800 snap-start">
-      <div className="mx-auto flex w-full max-w-[680px] flex-col gap-2 px-0 md:px-4">
-        <Link href={`/post/${doc.$id}`} className="block">
-          <div className="relative w-full bg-black md:rounded-lg overflow-hidden">
+    <article className="w-full snap-start">
+      <div className="mx-auto md:ml-[80px] flex w-full max-w-[680px] flex-col gap-2 px-0 md:px-4" style={{ maxWidth: "calc((100vh - 56px - 15px) * 9 / 16)" }}>
+        <div
+          className="relative w-full bg-black md:rounded-lg overflow-hidden"
+          style={{ height: "calc(100vh - 56px - 15px)" }}
+        >
+          <Link href={`/post/${doc.$id}`} className="block" aria-label="Open post">
             {videoSrc ? (
               <video
                 ref={videoRef}
                 src={videoSrc}
-                className="h-[calc(100vh-56px)] w-full object-cover md:h-[720px]"
+                className="h-full w-full object-cover rounded-[10px]"
                 muted
                 playsInline
                 loop
@@ -210,16 +303,105 @@ export default function PostCard({ doc }: Props) {
                 preload="metadata"
               />
             ) : (
-              <div className="h-[calc(100vh-56px)] w-full bg-neutral-900 md:h-[720px]" />
+              <div className="h-full w-full bg-neutral-900" />
             )}
+          </Link>
+
+            {/* Right action rail overlay */}
+            <div className="pointer-events-auto absolute inset-y-0 right-2 flex flex-col items-center justify-center gap-3">
+              {/* Profile avatar navigates to profile (wrapper div to allow absolute follow button sibling) */}
+              <div className="relative">
+              <button
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); const uid = authorId || ""; if (uid) router.push(`/profile/${uid}`); }}
+                className="block"
+                title="Author"
+                aria-label="View author profile"
+              >
+                  <img src="/images/placeholder-user.jpg" alt="avatar" className={`h-12 w-12 rounded-full object-cover ${isFollowing ? "ring-2 ring-emerald-500" : "border-2 border-white/70"} ${followFlash ? "animate-pulse" : ""}`} />
+                </button>
+                {/* Follow toggle badge (sibling, not nested in button/anchor) */}
+                {authorId && user?.$id !== authorId && (
+                  <button
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleFollowAuthor(); }}
+                    aria-label={isFollowing ? "Unfollow" : "Follow"}
+                    className={`absolute -bottom-1 left-1/2 -translate-x-1/2 grid place-items-center rounded-full ${isFollowing ? "bg-emerald-600" : "bg-emerald-500"} text-white h-5 w-5 shadow`}
+                    disabled={followBusy}
+                    title={isFollowing ? "Following" : "Follow"}
+                  >
+                    {isFollowing ? (
+                      <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M9 16.2l-3.5-3.5-1.4 1.4L9 19 20 8l-1.4-1.4z"/></svg>
+                    ) : (
+                      <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M12 4l6 6h-4v6h-4v-6H6z"/></svg>
+                    )}
+                  </button>
+                )}
+              </div>
+              {/* Like */}
+              <button
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleLike(); }}
+                className={`grid h-12 w-12 place-items-center rounded-full border transition-colors ${likeDocId ? "bg-rose-600 border-rose-600 text-white" : "border-neutral-700 hover:bg-neutral-900 text-neutral-200"} ${likeBusy ? "opacity-60 cursor-not-allowed" : ""}`}
+                title={user ? (likeDocId ? "Unlike" : "Like") : "Log in to like"}
+                disabled={likeBusy}
+                aria-label={user ? (likeDocId ? "Unlike post" : "Like post") : "Log in to like"}
+              >
+                <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" className="fill-current"><path d="M12.1 8.64l-.1.1-.11-.11C10.14 6.9 7.4 6.9 5.64 8.66c-1.76 1.76-1.76 4.6 0 6.36L12 21.36l6.36-6.34c1.76-1.76 1.76-4.6 0-6.36-1.76-1.76-4.6-1.76-6.26-.02z"/></svg>
+              </button>
+              <div className="text-xs opacity-80 min-w-[2ch] text-center text-white drop-shadow">{loadingLikes ? "..." : likeCount}</div>
+              {/* Comments navigates to detail */}
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  openComments(String((doc as any).$id));
+                }}
+                title="Comments"
+                className="grid h-12 w-12 place-items-center rounded-full border border-neutral-700 hover:bg-neutral-900 text-neutral-200"
+                aria-label="Open comments"
+              >
+                <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" className="fill-current"><path d="M20 2H4a2 2 0 00-2 2v14l4-4h14a2 2 0 002-2V4a2 2 0 00-2-2z"/></svg>
+              </button>
+              {/* Share */}
+              <button
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); const shareUrl = typeof window !== 'undefined' ? `${window.location.origin}/post/${(doc as any).$id}` : ''; (async () => { try { if (navigator.share) await navigator.share({ url: shareUrl }); else if (navigator.clipboard) await navigator.clipboard.writeText(shareUrl); } catch {} })(); }}
+                className="grid h-12 w-12 place-items-center rounded-full border border-neutral-700 hover:bg-neutral-900 text-neutral-200"
+                title="Share"
+                aria-label="Share post"
+              >
+                <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" className="fill-current"><path d="M14 9V5l7 7-7 7v-4H6v-6z"/></svg>
+              </button>
+            </div>
+
+            {/* Bottom mobile nav (matches left menu icons) */}
+            <div className="md:hidden pointer-events-none absolute inset-x-0 bottom-0 pb-2">
+              <div className="pointer-events-auto mx-auto flex max-w-[520px] items-center justify-around gap-2 rounded-2xl bg-black/40 px-3 py-2 backdrop-blur-sm">
+                <Link href="/" aria-label="For You" title="For You" className="p-2 rounded hover:bg-white/10 active:bg-white/20">
+                  <IconHome className="h-6 w-6 text-white" />
+                </Link>
+                <Link href="/following" aria-label="Following" title="Following" className="p-2 rounded hover:bg-white/10 active:bg-white/20">
+                  <IconUsers className="h-6 w-6 text-white" />
+                </Link>
+                <Link href="/profile" aria-label="My Profile" title="My Profile" className="p-2 rounded hover:bg-white/10 active:bg-white/20">
+                  <IconUserCircle className="h-6 w-6 text-white" />
+                </Link>
+                <Link href="/upload" aria-label="Upload" title="Upload" className="p-2 rounded hover:bg-white/10 active:bg-white/20">
+                  <IconPlus className="h-6 w-6 text-white" />
+                </Link>
+              </div>
+            </div>
           </div>
-        </Link>
+        {false && (
         <div className="mx-4 mb-4 flex items-start gap-3 md:mx-0">
           <div className="h-10 w-10 shrink-0 rounded-full bg-neutral-800" />
           <div className="flex-1">
             <div className="flex items-center gap-2">
               <div className="text-sm font-medium">
-                {(doc as any).user_id || (doc as any).userid || "user"}
+                {authorId ? (
+                  <Link href={`/profile/${authorId}`} className="hover:underline">
+                    {authorId}
+                  </Link>
+                ) : (
+                  (doc as any).user_id || (doc as any).userid || "user"
+                )}
               </div>
               {createdAt && <div className="text-xs opacity-60">{createdAt}</div>}
             </div>
@@ -246,6 +428,7 @@ export default function PostCard({ doc }: Props) {
             )}
           </div>
         </div>
+        )}
       </div>
     </article>
   );

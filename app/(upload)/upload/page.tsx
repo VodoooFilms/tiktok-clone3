@@ -8,7 +8,6 @@ import { useRouter } from "next/navigation";
 export default function UploadPage() {
   const { user } = useUser();
   const [file, setFile] = useState<File | null>(null);
-  const [caption, setCaption] = useState("");
   const [text, setText] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [log, setLog] = useState<string>("");
@@ -57,7 +56,6 @@ export default function UploadPage() {
       // Prepare Post doc for your schema (snake_case)
       const baseText = (text || "").slice(0, 150);
       const baseCommon: any = { user_id: user.$id };
-      if (caption) baseCommon.caption = caption;
       // Build variants with optional text (no custom created_at; rely on $createdAt)
       const withUrl: any = { ...baseCommon, video_url: fileView };
       const withId: any = { ...baseCommon, video_id: createdFile.$id };
@@ -81,7 +79,6 @@ export default function UploadPage() {
         try {
           const postDoc = await database.createDocument(String(dbId), String(colPost), docId, v.doc, perms as any);
           write(`post: OK (${v.name}) id=${postDoc.$id}`);
-          setCaption("");
           setText("");
           setFile(null);
           try { if (videoRef.current) videoRef.current.load(); } catch {}
@@ -110,14 +107,16 @@ export default function UploadPage() {
     <UploadLayout>
       <section className="grid grid-cols-1 gap-6 p-4 md:grid-cols-2">
         <div>
-          <div className="aspect-[9/16] w-full overflow-hidden rounded border border-neutral-800 bg-neutral-900">
-            {previewUrl ? (
-              <video ref={videoRef} src={previewUrl} className="h-full w-full object-contain" controls />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center text-sm text-neutral-400">
-                Select a video to preview
-              </div>
-            )}
+          <div className="flex w-full justify-center">
+            <div className="w-56 md:w-64 lg:w-72 overflow-hidden rounded border border-neutral-800 bg-neutral-900">
+              {previewUrl ? (
+                <video ref={videoRef} src={previewUrl} className="aspect-[9/16] w-full object-cover rounded-[10px]" muted playsInline loop controls />
+              ) : (
+                <div className="aspect-[9/16] w-full grid place-items-center text-sm text-neutral-400">
+                  Select a video to preview
+                </div>
+              )}
+            </div>
           </div>
           {submitting && (
             <div className="mt-2 h-1 w-full overflow-hidden rounded bg-neutral-800">
@@ -127,15 +126,6 @@ export default function UploadPage() {
           {error && <div className="mt-2 text-sm text-red-400">{error}</div>}
         </div>
         <form onSubmit={onSubmit} className="flex flex-col gap-3">
-          <label className="text-sm">
-            Caption
-            <input
-              value={caption}
-              onChange={(e) => setCaption(e.target.value)}
-              className="mt-1 w-full rounded border border-neutral-800 bg-black px-3 py-2 text-white placeholder-neutral-500"
-              placeholder="Write a caption"
-            />
-          </label>
           <label className="text-sm">
             Text (optional)
             <input
@@ -160,7 +150,6 @@ export default function UploadPage() {
             <button
               type="button"
               onClick={() => {
-                setCaption("");
                 setText("");
                 setFile(null);
                 try { if (videoRef.current) videoRef.current.load(); } catch {}

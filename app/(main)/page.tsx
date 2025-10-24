@@ -8,7 +8,7 @@ export default function Home() {
   const { posts, loading } = usePosts();
   return (
     <MainLayout>
-      <section className="w-full snap-y snap-mandatory md:snap-none">
+      <section className="w-full snap-y snap-mandatory md:snap-none space-y-3">
         {loading && <p className="p-4 text-sm text-neutral-500">Loading…</p>}
         {!loading && posts.length === 0 && (
           <p className="p-4 text-sm text-neutral-500">No posts yet.</p>
