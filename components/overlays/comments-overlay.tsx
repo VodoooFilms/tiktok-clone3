@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useUI } from "@/app/context/ui-context";
 import { useUser } from "@/app/context/user";
 import type { Models } from "appwrite";
@@ -17,6 +17,8 @@ export default function CommentsOverlay() {
 
   const databaseId = process.env.NEXT_PUBLIC_DATABASE_ID as string | undefined;
   const commentCol = process.env.NEXT_PUBLIC_COLLECTION_ID_COMMENT as string | undefined;
+  const commentLikeCol = process.env.NEXT_PUBLIC_COLLECTION_ID_COMMENT_LIKE as string | undefined;
+  const likeKeys = useMemo(() => ({ userKey: "user_id", commentKey: "comment_id" }), []);
 
   const open = Boolean(commentsPostId);
 
@@ -30,8 +32,37 @@ export default function CommentsOverlay() {
         Query.orderDesc("created_at"),
         Query.limit(50),
       ] as any);
-      setComments(res.documents as any);
-      setTotal(res.total || res.documents.length);
+      const docs = res.documents as any;
+      setComments(docs);
+      setTotal(res.total || docs.length);
+      if (commentLikeCol) {
+        const counts: Record<string, number> = {};
+        const mine: Record<string, string | null> = {};
+        await Promise.all(
+          docs.map(async (d: any) => {
+            const cid = String(d.$id);
+            try {
+              const totalRes = await database.listDocuments(String(databaseId), String(commentLikeCol), [
+                Query.equal(likeKeys.commentKey as any, cid),
+                Query.limit(1),
+              ] as any);
+              counts[cid] = totalRes.total || 0;
+              if (user) {
+                const myRes = await database.listDocuments(String(databaseId), String(commentLikeCol), [
+                  Query.equal(likeKeys.commentKey as any, cid),
+                  Query.equal(likeKeys.userKey as any, user.$id),
+                  Query.limit(1),
+                ] as any);
+                mine[cid] = myRes.documents[0]?.$id || null;
+              } else {
+                mine[cid] = null;
+              }
+            } catch {}
+          })
+        );
+        setCommentLikeCounts(counts);
+        setCommentLikeMine(mine);
+      }
     } catch (e: any) {
       setError(String(e?.message || e));
     } finally {
@@ -43,6 +74,55 @@ export default function CommentsOverlay() {
     fetchComments();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [commentsPostId, databaseId, commentCol]);
+
+  const [commentLikeCounts, setCommentLikeCounts] = useState<Record<string, number>>({});
+  const [commentLikeMine, setCommentLikeMine] = useState<Record<string, string | null>>({});
+  const [commentLikeBusy, setCommentLikeBusy] = useState<Record<string, boolean>>({});
+
+  const toggleCommentLike = async (commentId: string) => {
+    if (!databaseId || !commentLikeCol) return;
+    setCommentLikeBusy((prev) => ({ ...prev, [commentId]: true }));
+    const mineId = commentLikeMine[commentId];
+    if (mineId) {
+      try {
+        setCommentLikeMine((prev) => ({ ...prev, [commentId]: null }));
+        setCommentLikeCounts((prev) => ({ ...prev, [commentId]: Math.max(0, (prev[commentId] || 1) - 1) }));
+        await database.deleteDocument(String(databaseId), String(commentLikeCol), mineId);
+      } catch (e) {
+        setCommentLikeMine((prev) => ({ ...prev, [commentId]: mineId }));
+        setCommentLikeCounts((prev) => ({ ...prev, [commentId]: (prev[commentId] || 0) + 1 }));
+        console.error("Unlike comment failed", e);
+      } finally {
+        setCommentLikeBusy((prev) => ({ ...prev, [commentId]: false }));
+      }
+      return;
+    }
+    const perms = [
+      Permission.read(Role.any()),
+      Permission.update(Role.user(String(user?.$id || ""))),
+      Permission.delete(Role.user(String(user?.$id || ""))),
+    ];
+    try {
+      const payload: any = {
+        [likeKeys.userKey]: user?.$id,
+        [likeKeys.commentKey]: commentId,
+      };
+      const compositeId = `clk_${String(user?.$id || "").slice(0,12)}_${String(commentId).slice(0,12)}`;
+      const created = await database.createDocument(String(databaseId), String(commentLikeCol), ID.custom(compositeId), payload, perms as any);
+      setCommentLikeMine((prev) => ({ ...prev, [commentId]: created.$id }));
+      setCommentLikeCounts((prev) => ({ ...prev, [commentId]: (prev[commentId] || 0) + 1 }));
+    } catch (e: any) {
+      const msg = String(e?.message || e || "").toLowerCase();
+      if (e?.code === 409 || msg.includes("already exists")) {
+        setCommentLikeMine((prev) => ({ ...prev, [commentId]: `clk_${String(user?.$id || "").slice(0,12)}_${String(commentId).slice(0,12)}` }));
+        setCommentLikeCounts((prev) => ({ ...prev, [commentId]: (prev[commentId] || 0) + 1 }));
+      } else {
+        console.error("Like comment failed", e);
+      }
+    } finally {
+      setCommentLikeBusy((prev) => ({ ...prev, [commentId]: false }));
+    }
+  };
 
   // Close with ESC for accessibility
   useEffect(() => {
@@ -104,19 +184,39 @@ export default function CommentsOverlay() {
             <div className="py-6 text-center text-sm text-neutral-400">No comments yet</div>
           )}
           <div className="flex flex-col gap-3">
-            {comments.map((c) => (
-              <div key={c.$id} className="flex gap-3">
-                <div className="h-9 w-9 shrink-0 rounded-full bg-neutral-800" />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 text-xs text-neutral-400">
-                    <span className="truncate">{(c as any).user_id || "user"}</span>
-                    <span>•</span>
-                    <span>{new Date(String((c as any).created_at || c.$createdAt)).toLocaleString()}</span>
+            {comments.map((c) => {
+              const cid = String(c.$id);
+              const liked = Boolean(commentLikeMine[cid]);
+              const cnt = commentLikeCounts[cid] || 0;
+              const busy = !!commentLikeBusy[cid];
+              return (
+                <div key={cid} className="flex gap-3">
+                  <div className="h-9 w-9 shrink-0 rounded-full bg-neutral-800" />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 text-xs text-neutral-400">
+                      <span className="truncate">{(c as any).user_id || "user"}</span>
+                      <span>•</span>
+                      <span>{new Date(String((c as any).created_at || c.$createdAt)).toLocaleString()}</span>
+                    </div>
+                    <div className="mt-0.5 text-sm leading-relaxed text-neutral-100 break-words">{(c as any).text}</div>
                   </div>
-                  <div className="text-sm leading-relaxed text-neutral-100 break-words">{(c as any).text}</div>
+                  {commentLikeCol && (
+                    <div className="ml-auto flex shrink-0 items-center gap-1">
+                      <button
+                        onClick={() => toggleCommentLike(cid)}
+                        disabled={!user || busy}
+                        className={`grid h-7 w-7 place-items-center rounded-full border text-xs ${liked ? "bg-rose-600 border-rose-600 text-white" : "border-neutral-700 hover:bg-neutral-900 text-neutral-200"} ${busy ? "opacity-60 cursor-not-allowed" : ""}`}
+                        title={!user ? "Log in to like" : liked ? "Unlike" : "Like"}
+                        aria-label={!user ? "Log in to like comment" : liked ? "Unlike comment" : "Like comment"}
+                      >
+                        <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" className="fill-current"><path d="M12.1 8.64l-.1.1-.11-.11C10.14 6.9 7.4 6.9 5.64 8.66c-1.76 1.76-1.76 4.6 0 6.36L12 21.36l6.36-6.34c1.76-1.76 1.76-4.6 0-6.36-1.76-1.76-4.6-1.76-6.26-.02z"/></svg>
+                      </button>
+                      <span className="min-w-[2ch] text-right text-xs opacity-80">{cnt}</span>
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
@@ -151,4 +251,3 @@ export default function CommentsOverlay() {
     </div>
   );
 }
-
