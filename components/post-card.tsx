@@ -14,7 +14,7 @@ type Props = { doc: Models.Document };
 export default function PostCard({ doc }: Props) {
   const { user } = useUser();
   const router = useRouter();
-  const { openComments, openAuth, commentsPostId, closeComments } = useUI();
+  const { openComments, openAuth, commentsPostId, closeComments, openShare } = useUI();
   const pathname = usePathname();
   const bucketId = process.env.NEXT_PUBLIC_BUCKET_ID as string | undefined;
   const dbId = process.env.NEXT_PUBLIC_DATABASE_ID as string | undefined;
