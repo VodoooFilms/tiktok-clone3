@@ -4,9 +4,10 @@ import { storage, database, ID, Permission, Role, Query } from "@/libs/AppWriteC
 import Link from "next/link";
 import { IconHome, IconUsers, IconUserCircle, IconPlus } from "@/components/icons";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useUser } from "@/app/context/user";
 import { useUI } from "@/app/context/ui-context";
+import { useProfile } from "@/lib/hooks/useProfile";
 
 type Props = { doc: Models.Document };
 
@@ -59,6 +60,19 @@ export default function PostCard({ doc }: Props) {
 
   const authorKey = get(["user_id", "userid", "userId", "author_id", "authorId", "owner_id", "ownerId", "user", "author", "uid"]);
   const authorId: string | null = authorKey && (doc as any)[authorKey] ? String((doc as any)[authorKey]) : null;
+
+  // Load author's profile to show avatar in feeds
+  const { profile: authorProfile } = useProfile(authorId || undefined);
+  const authorAvatarUrl = useMemo(() => {
+    if (!authorProfile || !bucketId) return "";
+    const any: any = authorProfile;
+    const avatarId = any.avatar_file_id || any.avatarId || any.avatar || any.avatar_fileId || any.avatarUrl || any.avatar_url;
+    try {
+      return avatarId ? storage.getFileView(String(bucketId), String(avatarId)).toString() : "";
+    } catch {
+      return "";
+    }
+  }, [authorProfile, bucketId, storage]);
 
   const refreshFollow = async () => {
     if (!dbId || !followCol || !user || !authorId || user.$id === authorId) {
@@ -317,7 +331,7 @@ export default function PostCard({ doc }: Props) {
                 title="Author"
                 aria-label="View author profile"
               >
-                  <img src="/images/placeholder-user.jpg" alt="avatar" className={`h-12 w-12 rounded-full object-cover ${isFollowing ? "ring-2 ring-emerald-500" : "border-2 border-white/70"} ${followFlash ? "animate-pulse" : ""}`} />
+                  <img src={authorAvatarUrl || "/images/placeholder-user.jpg"} alt="avatar" className={`h-12 w-12 rounded-full object-cover ${isFollowing ? "ring-2 ring-emerald-500" : "border-2 border-white/70"} ${followFlash ? "animate-pulse" : ""}`} />
                 </button>
                 {/* Follow toggle badge (sibling, not nested in button/anchor) */}
                 {authorId && user?.$id !== authorId && (
