@@ -107,7 +107,7 @@ export default function UploadPage() {
   return (
     <UploadLayout>
       <section className="grid grid-cols-1 gap-6 p-4 md:grid-cols-2">
-        <div>
+        <div className="order-2 md:order-1">
           <div className="flex w-full justify-center">
             <div className="relative max-w-[80vw] sm:max-w-[16rem] md:max-w-[18rem] lg:max-w-[22rem] w-full rounded-2xl border border-neutral-800 bg-gradient-to-b from-neutral-950 to-neutral-900 shadow-xl ring-1 ring-black/10 overflow-hidden">
               {previewUrl ? (
@@ -126,7 +126,10 @@ export default function UploadPage() {
           )}
           {error && <div className="mt-2 text-sm text-red-400">{error}</div>}
         </div>
-        <form onSubmit={onSubmit} className="flex flex-col gap-4">
+        <form onSubmit={onSubmit} className="order-1 md:order-2 flex flex-col gap-3">
+          <p className="text-xs text-neutral-400">
+            Post responsibly, with creativity and originality.
+          </p>
           <label className="text-sm">
             Text (optional)
             <textarea
