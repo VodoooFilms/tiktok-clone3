@@ -1,7 +1,7 @@
 "use client";
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import type { Models } from "appwrite";
-import { account, client } from "@/libs/AppWriteClient";
+import { account, client, database } from "@/libs/AppWriteClient";
 
 type AppwriteUser = Models.User<Models.Preferences>;
 
@@ -49,6 +49,35 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       localStorage.removeItem(key);
     } catch {
       // ignore
+    }
+  };
+
+  const ensureProfile = async (userId: string, userData: AppwriteUser) => {
+    try {
+      const databaseId = process.env.NEXT_PUBLIC_DATABASE_ID as string;
+      const collectionId = process.env.NEXT_PUBLIC_COLLECTION_ID_PROFILE as string;
+      
+      // Intentar obtener el perfil existente
+      try {
+        await database.getDocument(databaseId, collectionId, userId);
+      } catch (err) {
+        // Si el perfil no existe, lo creamos
+        await database.createDocument(
+          databaseId,
+          collectionId,
+          userId,
+          {
+            name: userData.name,
+            email: (userData as any).email,
+            bio: "",
+            image: "",
+            following: [],
+            followers: []
+          }
+        );
+      }
+    } catch (error) {
+      console.error("Error ensuring profile:", error);
     }
   };
 
@@ -124,6 +153,10 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
           return (await r.json()) as AppwriteUser;
         }
       })();
+
+      // Ensure user has a profile
+      await ensureProfile(me.$id, me);
+      
       setUser(me as AppwriteUser);
       safeSet(
         CACHE_KEY,
