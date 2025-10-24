@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Tik Tok Clone",
-  description: "Tik Tok Clone",
+  title: "Yaddai AI Videos For You",
+  description: "Yaddai AI Videos For You",
 };
 
 export default function RootLayout({

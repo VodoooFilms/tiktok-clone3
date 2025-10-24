@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import { useEffect, useMemo, useState } from "react";
 import { useUI } from "@/app/context/ui-context";
 import { useUser } from "@/app/context/user";
@@ -35,6 +35,7 @@ export default function CommentsOverlay() {
       const docs = res.documents as any;
       setComments(docs);
       setTotal(res.total || docs.length);
+
       if (commentLikeCol) {
         const counts: Record<string, number> = {};
         const mine: Record<string, string | null> = {};
@@ -116,8 +117,6 @@ export default function CommentsOverlay() {
       if (e?.code === 409 || msg.includes("already exists")) {
         setCommentLikeMine((prev) => ({ ...prev, [commentId]: `clk_${String(user?.$id || "").slice(0,12)}_${String(commentId).slice(0,12)}` }));
         setCommentLikeCounts((prev) => ({ ...prev, [commentId]: (prev[commentId] || 0) + 1 }));
-      } else {
-        console.error("Like comment failed", e);
       }
     } finally {
       setCommentLikeBusy((prev) => ({ ...prev, [commentId]: false }));
@@ -164,17 +163,19 @@ export default function CommentsOverlay() {
   if (!open) return null;
 
   return (
-    <div className="pointer-events-none fixed inset-0 z-50 flex justify-end">
+    <div className="pointer-events-none fixed inset-0 z-50 flex items-end justify-center md:items-end md:justify-end">
       {/* Backdrop for clicks to close on desktop */}
       <div className="pointer-events-auto hidden flex-1 bg-black/30 md:block" onClick={closeComments} />
+      {/* Mobile top spacer keeps a slice of the video visible and closes on tap */}
+      <div className="pointer-events-auto flex-1 md:hidden" onClick={closeComments} />
       <aside
-        className="pointer-events-auto flex h-full w-full md:max-w-[420px] flex-col border-l border-neutral-800 bg-neutral-950 text-white"
+        className="pointer-events-auto flex h-[85%] md:h-full w-full md:max-w-[420px] flex-col border-l border-neutral-800 bg-neutral-950 text-white rounded-t-2xl md:rounded-none shadow-2xl"
         role="dialog"
         aria-label="Comments"
       >
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-neutral-800 px-4 py-3 bg-neutral-950/80 backdrop-blur supports-[backdrop-filter]:bg-neutral-950/60">
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-neutral-800 px-4 py-3 bg-neutral-950/80 backdrop-blur supports-[backdrop-filter]:bg-neutral-950/60 rounded-t-2xl">
           <div className="text-sm font-medium">Comments{typeof total === "number" ? ` (${total})` : ""}</div>
-          <button onClick={closeComments} aria-label="Close comments" className="rounded px-2 py-1 text-base md:text-sm opacity-80 hover:opacity-100">✕</button>
+          <button onClick={closeComments} aria-label="Close comments" className="rounded px-2 py-1 text-base md:text-sm opacity-80 hover:opacity-100">×</button>
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-4">
@@ -196,9 +197,9 @@ export default function CommentsOverlay() {
                     <div className="flex items-center gap-2 text-xs text-neutral-400">
                       <span className="truncate">{(c as any).user_id || "user"}</span>
                       <span>•</span>
-                      <span>{new Date(String((c as any).created_at || c.$createdAt)).toLocaleString()}</span>
+                      <span>{new Date(String((c as any).created_at || (c as any).$createdAt)).toLocaleString()}</span>
                     </div>
-                    <div className="mt-0.5 text-sm leading-relaxed text-neutral-100 break-words">{(c as any).text}</div>
+                    <div className="mt-0.5 break-words text-sm leading-relaxed text-neutral-100">{(c as any).text}</div>
                   </div>
                   {commentLikeCol && (
                     <div className="ml-auto flex shrink-0 items-center gap-1">
@@ -234,7 +235,9 @@ export default function CommentsOverlay() {
             disabled={!user || !text.trim() || posting}
             className="rounded-lg bg-emerald-600 px-4 py-3 text-base md:text-sm md:py-2 disabled:cursor-not-allowed disabled:opacity-60"
             aria-label="Post comment"
-          >\n            {posting ? "Posting�" : "Post"}\n          </button>
+          >
+            {posting ? "Posting…" : "Post"}
+          </button>
         </form>
       </aside>
 
@@ -244,17 +247,9 @@ export default function CommentsOverlay() {
         aria-label="Close comments"
         className="pointer-events-auto md:hidden absolute top-3 right-3 grid h-9 w-9 place-items-center rounded-full bg-black/70 text-white border border-white/20"
       >
-        ✕
+        ×
       </button>
     </div>
   );
 }
-
-
-
-
-
-
-
-
 
