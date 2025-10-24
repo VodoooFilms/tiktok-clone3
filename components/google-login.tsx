@@ -11,17 +11,15 @@ export default function GoogleLoginButton() {
     try {
       setLoading(true);
       
-      // Get origin dynamically for localhost/Vercel
       const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
       console.log('Current origin:', origin);
       
-      console.log('Initiating Google OAuth2 session...');
+      // Create the OAuth2 session with Appwrite
       await account.createOAuth2Session(
         OAuthProvider.Google,
-        origin, // Success URL
+        `${origin}`, // Success URL (base URL)
         `${origin}/auth/error`, // Failure URL
-        ["https://www.googleapis.com/auth/userinfo.email", 
-         "https://www.googleapis.com/auth/userinfo.profile"]
+        [] // Empty scopes array - let Appwrite handle default scopes
       );
     } catch (error) {
       console.error("Google login error:", error);
