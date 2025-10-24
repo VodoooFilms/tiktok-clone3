@@ -5,7 +5,12 @@ import { account } from "@/libs/AppWriteClient";
 import { OAuthProvider } from "appwrite";
 
 function getRedirectURL() {
-  // Always use the current origin or production URL
+  // Prefer explicit production URL when running in production.
+  // If NEXT_PUBLIC_APP_URL is not set, fall back to the known Vercel domain so we don't
+  // accidentally pass localhost to Appwrite as the success/failure URL.
+  if (process.env.NODE_ENV === 'production') {
+    return process.env.NEXT_PUBLIC_APP_URL || 'https://tiktok-clone3.vercel.app';
+  }
   return process.env.NEXT_PUBLIC_APP_URL || (typeof window !== "undefined" ? window.location.origin : '');
 }
 

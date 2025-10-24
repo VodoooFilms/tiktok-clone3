@@ -11,8 +11,12 @@ export default function GoogleLoginButton() {
     try {
       setLoading(true);
       
-      // Use production URL from environment variables
-      const redirectUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
+      // Prefer explicit production URL when running in production.
+      // If NEXT_PUBLIC_APP_URL is not set in the environment, fall back to the known Vercel domain
+      // to avoid accidentally passing localhost to Appwrite as the success/failure URL.
+      const redirectUrl = (process.env.NODE_ENV === 'production')
+        ? (process.env.NEXT_PUBLIC_APP_URL || 'https://tiktok-clone3.vercel.app')
+        : (process.env.NEXT_PUBLIC_APP_URL || window.location.origin);
       console.log('Debug - Redirect URL:', redirectUrl);
       
       // Create the OAuth2 session with Appwrite
