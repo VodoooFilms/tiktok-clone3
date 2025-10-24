@@ -11,8 +11,13 @@ export default function GoogleLoginButton() {
     try {
       setLoading(true);
       
-      // Force localhost for local testing
-      const origin = 'http://localhost:3000';
+      // Get the current URL dynamically for both local and production
+      const origin = typeof window !== 'undefined' 
+        ? window.location.origin 
+        : process.env.NEXT_PUBLIC_VERCEL_URL 
+          ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`
+          : 'http://localhost:3000';
+      
       console.log('Debug - Using origin:', origin);
       
       // Create the OAuth2 session with Appwrite
