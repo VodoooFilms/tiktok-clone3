@@ -34,6 +34,26 @@ export function IconUserCircle({ className }: Props) {
   );
 }
 
+// New profile icon with clear head + shoulders silhouette (outline strokes)
+export function IconProfile({ className }: Props) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="12" cy="12" r="9" />
+      <circle cx="12" cy="10" r="3" />
+      <path d="M6 19c0-3.2 12-3.2 12 0" />
+    </svg>
+  );
+}
+
 export function IconPlus({ className }: Props) {
   return (
     <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className={className}>

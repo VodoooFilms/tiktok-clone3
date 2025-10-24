@@ -2,7 +2,7 @@
 import type { Models } from "appwrite";
 import { storage, database, ID, Permission, Role, Query } from "@/libs/AppWriteClient";
 import Link from "next/link";
-import { IconHome, IconUsers, IconUserCircle, IconPlus } from "@/components/icons";
+import { IconHome, IconUsers, IconProfile, IconPlus } from "@/components/icons";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useUser } from "@/app/context/user";
@@ -93,6 +93,8 @@ export default function PostCard({ doc }: Props) {
       setIsFollowing(false);
       setFollowDocId(null);
     }
+    // Ensure busy flag resets after both like and unlike flows
+    setLikeBusy(false);
   };
 
   useEffect(() => {
@@ -395,7 +397,7 @@ export default function PostCard({ doc }: Props) {
                   <IconUsers className="h-6 w-6 text-white" />
                 </Link>
                 <Link href="/profile" aria-label="My Profile" title="My Profile" className="p-2 rounded hover:bg-white/10 active:bg-white/20">
-                  <IconUserCircle className="h-6 w-6 text-white" />
+                  <IconProfile className="h-6 w-6 text-white" />
                 </Link>
                 <Link href="/upload" aria-label="Upload" title="Upload" className="p-2 rounded hover:bg-white/10 active:bg-white/20">
                   <IconPlus className="h-6 w-6 text-white" />

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { IconHome, IconUsers, IconUserCircle, IconPlus } from "@/components/icons";
+import { IconHome, IconUsers, IconProfile, IconPlus } from "@/components/icons";
 
 export default function SideNavMain() {
   return (
@@ -14,7 +14,7 @@ export default function SideNavMain() {
           <span>Following</span>
         </Link>
         <Link href="/profile" className="flex items-center gap-2 px-3 py-2 rounded hover:bg-neutral-100 dark:hover:bg-neutral-900">
-          <IconUserCircle className="h-5 w-5" />
+          <IconProfile className="h-5 w-5" />
           <span>My Profile</span>
         </Link>
         <Link href="/upload" className="flex items-center gap-2 px-3 py-2 rounded hover:bg-neutral-100 dark:hover:bg-neutral-900">
