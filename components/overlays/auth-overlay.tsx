@@ -5,10 +5,8 @@ import { account } from "@/libs/AppWriteClient";
 import { OAuthProvider } from "appwrite";
 
 function getRedirectURL() {
-  const envUrl = process.env.NEXT_PUBLIC_APP_URL;
-  if (envUrl && envUrl.length) return envUrl;
-  if (typeof window !== "undefined") return window.location.origin;
-  return "http://localhost:3000";
+  // Always use the current origin or production URL
+  return process.env.NEXT_PUBLIC_APP_URL || (typeof window !== "undefined" ? window.location.origin : '');
 }
 
 export default function AuthOverlay() {
@@ -18,7 +16,11 @@ export default function AuthOverlay() {
 
   const loginWithGoogle = async () => {
     const redirect = getRedirectURL();
-    await account.createOAuth2Session(OAuthProvider.Google, redirect, `${redirect}?auth=failed`);
+    await account.createOAuth2Session(
+      OAuthProvider.Google,
+      redirect,
+      `${redirect}/auth/error`
+    );
   };
 
   return (
