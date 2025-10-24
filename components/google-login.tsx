@@ -11,21 +11,15 @@ export default function GoogleLoginButton() {
     try {
       setLoading(true);
       
-      // Get the current URL dynamically for both local and production
-      const origin = typeof window !== 'undefined' 
-        ? window.location.origin 
-        : process.env.NEXT_PUBLIC_VERCEL_URL 
-          ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`
-          : 'http://localhost:3000';
-      
-      console.log('Debug - Using origin:', origin);
+      // Get the actual URL being used
+      const currentOrigin = window.location.origin;
+      console.log('Debug - Current origin:', currentOrigin);
       
       // Create the OAuth2 session with Appwrite
-      console.log('Debug - Starting OAuth2 session with Appwrite...');
       await account.createOAuth2Session(
         OAuthProvider.Google,
-        origin, // Success URL
-        `${origin}/auth/error` // Failure URL
+        currentOrigin, // Success URL - always use current origin
+        `${currentOrigin}/auth/error` // Failure URL - always use current origin
       );
     } catch (error) {
       console.error("Google login error:", error);
