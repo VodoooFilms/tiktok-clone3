@@ -338,7 +338,7 @@ export default function PostCard({ doc }: Props) {
                   <button
                     onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleFollowAuthor(); }}
                     aria-label={isFollowing ? "Unfollow" : "Follow"}
-                    className={`absolute -bottom-1 left-1/2 -translate-x-1/2 grid place-items-center rounded-full ${isFollowing ? "bg-emerald-600" : "bg-emerald-500"} text-white h-5 w-5 shadow`}
+                    className={`absolute -bottom-1 left-1/2 -translate-x-1/2 grid place-items-center rounded-full ${isFollowing ? "bg-emerald-600" : "bg-neutral-500"} text-white h-5 w-5 shadow`}
                     disabled={followBusy}
                     title={isFollowing ? "Following" : "Follow"}
                   >
@@ -447,3 +447,4 @@ export default function PostCard({ doc }: Props) {
     </article>
   );
 }
+
