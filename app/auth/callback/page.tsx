@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { account } from "@/lib/appwrite";
-import { database, ID, Permission, Role } from "@/libs/AppWriteClient";
+import { client, database, ID, Permission, Role } from "@/libs/AppWriteClient";
 
 export default function AuthCallback() {
   const router = useRouter();
@@ -13,6 +13,14 @@ export default function AuthCallback() {
       try {
         // Ensure Appwrite session is established and fetch user
         const me = await account.get();
+        // Set SDK fallback session so DB/Storage calls work even if third‑party cookies are blocked
+        try {
+          const sess: any = await account.getSession('current');
+          const secret = String(sess?.secret || sess?.$id || "");
+          if (secret) {
+            try { (client as any).setSession(secret); } catch {}
+          }
+        } catch {}
         const userId = me.$id;
 
         const databaseId = process.env.NEXT_PUBLIC_DATABASE_ID as string;

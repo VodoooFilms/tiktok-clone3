@@ -7,7 +7,7 @@ import { IconPlus, IconLogout } from "@/components/icons";
 
 export default function TopNav() {
   const { openAuth } = useUI();
-  const { user, logout } = useUser();
+  const { user, loading, logout } = useUser();
   const pathname = usePathname();
   const isActive = (_href: string) => ""; // tabs removed
   return (
@@ -51,21 +51,21 @@ export default function TopNav() {
             <IconPlus className="h-4 w-4" />
             Upload
           </a>
-          {!user ? (
+          {!loading && !user ? (
             <button
               onClick={openAuth}
               className="rounded bg-black text-white px-3 py-1 dark:bg-white dark:text-black"
             >
               Log in
             </button>
-          ) : (
+          ) : user ? (
             <>
               <button className="rounded border px-3 py-1 inline-flex items-center gap-1.5" onClick={logout}>
                 <IconLogout className="h-4 w-4" />
                 Log out
               </button>
             </>
-          )}
+          ) : null}
         </nav>
       </div>
     </header>
