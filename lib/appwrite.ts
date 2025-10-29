@@ -1,9 +1,7 @@
 import { Client, Account } from "appwrite";
 
-const client = new Client();
-
-client
-  .setEndpoint("https://sfo.cloud.appwrite.io/v1")
-  .setProject("68f947cd0031ce04b21f");
+const client = new Client()
+  .setEndpoint((process.env.NEXT_PUBLIC_APPWRITE_URL || process.env.NEXT_PUBLIC_ENDPOINT) as string)
+  .setProject(process.env.NEXT_PUBLIC_APPWRITE_PROJECT as string);
 
 export const account = new Account(client);
