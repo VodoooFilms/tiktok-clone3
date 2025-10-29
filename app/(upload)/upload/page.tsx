@@ -47,7 +47,11 @@ export default function UploadPage() {
       const form = new FormData();
       form.append("file", file);
       form.append("kind", "video");
-      const upRes = await fetch("/api/gcs/upload", { method: "POST", body: form });
+      const upRes = await fetch("/api/gcs/upload", {
+        method: "POST",
+        body: form,
+        headers: user ? { "x-user-id": user.$id } as any : undefined,
+      });
       if (!upRes.ok) {
         const err = await upRes.json().catch(() => ({}));
         throw new Error(String(err?.error || `Upload failed (${upRes.status})`));

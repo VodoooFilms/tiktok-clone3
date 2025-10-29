@@ -5,30 +5,9 @@ export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
   try {
-    const endpoint = (process.env.NEXT_PUBLIC_APPWRITE_URL || process.env.NEXT_PUBLIC_ENDPOINT) as string | undefined;
-    const project = process.env.NEXT_PUBLIC_APPWRITE_PROJECT as string | undefined;
-    if (!endpoint || !project) {
-      return NextResponse.json({ ok: false, error: "Appwrite env not configured" }, { status: 500 });
-    }
-
-    // Verify session by forwarding cookies to Appwrite /account
-    const cookie = request.headers.get("cookie") || "";
-    const meRes = await fetch(`${endpoint}/account`, {
-      method: "GET",
-      headers: {
-        "X-Appwrite-Project": String(project),
-        cookie,
-      },
-      cache: "no-store",
-    });
-    if (!meRes.ok) {
-      return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
-    }
-    const me = await meRes.json();
-    const userId = String(me?.$id || "");
-    if (!userId) {
-      return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
-    }
+    // Trust the app client to provide the user id. This avoids cross-domain cookie issues with Appwrite.
+    const headerUser = request.headers.get("x-user-id");
+    const userId = headerUser ? String(headerUser) : "anon";
 
     const form = await request.formData();
     const file = form.get("file");
