@@ -3,8 +3,10 @@ import { useUI } from "@/app/context/ui-context";
 import { useUser } from "@/app/context/user";
 import { database, ID, Permission, Role } from "@/libs/AppWriteClient";
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 
 export default function EditProfileOverlay() {
+  const router = useRouter();
   const { editProfileOpen, closeEditProfile } = useUI();
   const { user } = useUser();
   const [name, setName] = useState("");
@@ -204,7 +206,15 @@ export default function EditProfileOverlay() {
           throw err;
         }
       }
-      try { window.dispatchEvent(new CustomEvent('profile:saved')); } catch {}
+      // If we are on the setup route, go to My Profile after save
+      try {
+        const onSetup = typeof window !== 'undefined' && window.location.pathname.startsWith('/profile/setup');
+        if (onSetup) {
+          router.replace(`/profile/${user.$id}`);
+        } else {
+          window.dispatchEvent(new CustomEvent('profile:saved'));
+        }
+      } catch {}
       closeEditProfile();
     } catch (e: any) {
       setError(String(e?.message || e || "Failed to save profile"));
