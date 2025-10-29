@@ -122,14 +122,15 @@ export default function PostCard({ doc }: Props) {
   // Load author's profile to show avatar in feeds
   const { profile: authorProfile } = useProfile(authorId || undefined);
   const authorAvatarUrl = useMemo(() => {
-    if (!authorProfile || !bucketId) return "";
+    if (!authorProfile) return "";
     const any: any = authorProfile;
-    const avatarId = any.avatar_file_id || any.avatarId || any.avatar || any.avatar_fileId || any.avatarUrl || any.avatar_url;
-    try {
-      return avatarId ? storage.getFileView(String(bucketId), String(avatarId)).toString() : "";
-    } catch {
-      return "";
+    const urlField = any.avatar_url || any.avatarUrl || null;
+    if (urlField && /^https?:\/\//i.test(String(urlField))) return String(urlField);
+    const fileId = any.avatar_file_id || any.avatarId || any.avatar || any.avatar_fileId || null;
+    if (fileId && bucketId) {
+      try { return storage.getFileView(String(bucketId), String(fileId)).toString(); } catch {}
     }
+    return "";
   }, [authorProfile, bucketId, storage]);
 
   const refreshFollow = async () => {

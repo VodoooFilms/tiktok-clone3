@@ -2,7 +2,7 @@
 import UploadLayout from "@/app/layouts/UploadLayout";
 import { useState, useMemo, useRef } from "react";
 import { useUser } from "@/app/context/user";
-import { storage, database, ID, Permission, Role } from "@/libs/AppWriteClient";
+import { database, ID, Permission, Role } from "@/libs/AppWriteClient";
 import { useRouter } from "next/navigation";
 
 export default function UploadPage() {
@@ -32,7 +32,6 @@ export default function UploadPage() {
     setLog("");
     try {
       if (!user) throw new Error("No session. Log in first.");
-      if (!bucketId) throw new Error("Missing NEXT_PUBLIC_BUCKET_ID");
       if (!dbId || !colPost) throw new Error("Missing NEXT_PUBLIC_DATABASE_ID/COLLECTION_ID_POST");
       if (!file) throw new Error("Pick a video file first");
       const MAX_MB = 100; // adjust as needed
@@ -43,23 +42,30 @@ export default function UploadPage() {
       write(`# Upload start @ ${new Date().toISOString()}`);
       write(`file: ${file.name} (${file.size} bytes)`);
 
-      // Upload to storage
-      const fileId = ID.unique();
+      // Upload to GCS via API
       setProgress(null); // indeterminate
-      const createdFile = await storage.createFile(String(bucketId), fileId, file, [
-        Permission.read(Role.any()),
-        Permission.update(Role.user(user.$id)),
-        Permission.delete(Role.user(user.$id)),
-      ] as any);
-      const fileView = storage.getFileView(String(bucketId), String(createdFile.$id)).toString();
-      write(`storage: OK id=${createdFile.$id}`);
+      const form = new FormData();
+      form.append("file", file);
+      form.append("kind", "video");
+      const upRes = await fetch("/api/gcs/upload", {
+        method: "POST",
+        body: form,
+        headers: user ? { "x-user-id": user.$id } as any : undefined,
+      });
+      if (!upRes.ok) {
+        const err = await upRes.json().catch(() => ({}));
+        throw new Error(String(err?.error || `Upload failed (${upRes.status})`));
+      }
+      const upJson = await upRes.json();
+      const fileView: string = String(upJson.url);
+      write(`gcs: OK object=${upJson.object}`);
 
       // Prepare Post doc for your schema (snake_case)
       const baseText = (text || "").slice(0, 150);
       const baseCommon: any = { user_id: user.$id };
       // Build variants with optional text (no custom created_at; rely on $createdAt)
       const withUrl: any = { ...baseCommon, video_url: fileView };
-      const withId: any = { ...baseCommon, video_id: createdFile.$id };
+      const withId: any = { ...baseCommon, video_url: fileView };
       if (baseText) {
         withUrl.text = baseText;
         withId.text = baseText;
