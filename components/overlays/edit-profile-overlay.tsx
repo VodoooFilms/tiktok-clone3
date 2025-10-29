@@ -145,16 +145,12 @@ export default function EditProfileOverlay() {
       const bioTrim = bio.trim();
       if (keys.bioKey && bioTrim) payload[keys.bioKey] = bioTrim;
       if (keys.descKey && bioTrim) payload[keys.descKey] = bioTrim;
-      // Prefer URL fields when available
-      if (avatarUrlStr) {
-        if (keys.avatarUrlKey) payload[keys.avatarUrlKey] = avatarUrlStr;
-        else if (keys.avatarKey) payload[keys.avatarKey] = avatarUrlStr;
-        else payload["avatar_url"] = avatarUrlStr;
+      // Prefer URL fields when available; avoid writing long URLs into *_file_id fields
+      if (avatarUrlStr && keys.avatarUrlKey) {
+        payload[keys.avatarUrlKey] = avatarUrlStr;
       }
-      if (bannerUrlStr) {
-        if (keys.bannerUrlKey) payload[keys.bannerUrlKey] = bannerUrlStr;
-        else if (keys.bannerKey) payload[keys.bannerKey] = bannerUrlStr;
-        else payload["banner_url"] = bannerUrlStr;
+      if (bannerUrlStr && keys.bannerUrlKey) {
+        payload[keys.bannerUrlKey] = bannerUrlStr;
       }
 
       // Try upsert: create with deterministic ID, then fallback to update on conflict
@@ -187,16 +183,12 @@ export default function EditProfileOverlay() {
             if (avatarUrlStr) {
               if (has("avatar_url")) clean["avatar_url"] = avatarUrlStr;
               else if (has("avatarUrl")) clean["avatarUrl"] = avatarUrlStr;
-              else if (has("avatar") || has("avatarId") || has("avatar_file_id")) {
-                clean[has("avatar") ? "avatar" : has("avatarId") ? "avatarId" : "avatar_file_id"] = avatarUrlStr;
-              }
+              // do not write URL into file-id type fields
             }
             if (bannerUrlStr) {
               if (has("banner_url")) clean["banner_url"] = bannerUrlStr;
               else if (has("bannerUrl")) clean["bannerUrl"] = bannerUrlStr;
-              else if (has("banner") || has("bannerId") || has("banner_file_id")) {
-                clean[has("banner") ? "banner" : has("bannerId") ? "bannerId" : "banner_file_id"] = bannerUrlStr;
-              }
+              // do not write URL into file-id type fields
             }
             await database.createDocument(String(dbId), String(colProfile), ID.custom(user.$id), clean, perms as any);
           } catch (ie) { throw ie; }
