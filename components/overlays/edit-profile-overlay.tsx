@@ -112,7 +112,11 @@ export default function EditProfileOverlay() {
         const form = new FormData();
         form.append("file", avatarFile);
         form.append("kind", "avatar");
-        const up = await fetch("/api/gcs/upload", { method: "POST", body: form });
+        const up = await fetch("/api/gcs/upload", {
+          method: "POST",
+          body: form,
+          headers: user ? { "x-user-id": user.$id } as any : undefined,
+        });
         if (!up.ok) { const err = await up.json().catch(() => ({})); throw new Error(String(err?.error || `Avatar upload failed (${up.status})`)); }
         const j = await up.json();
         avatarUrlStr = String(j.url);
@@ -122,7 +126,11 @@ export default function EditProfileOverlay() {
         const form = new FormData();
         form.append("file", bannerFile);
         form.append("kind", "banner");
-        const up = await fetch("/api/gcs/upload", { method: "POST", body: form });
+        const up = await fetch("/api/gcs/upload", {
+          method: "POST",
+          body: form,
+          headers: user ? { "x-user-id": user.$id } as any : undefined,
+        });
         if (!up.ok) { const err = await up.json().catch(() => ({})); throw new Error(String(err?.error || `Banner upload failed (${up.status})`)); }
         const j = await up.json();
         bannerUrlStr = String(j.url);
