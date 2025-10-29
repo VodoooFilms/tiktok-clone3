@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { getBucketName, getStorage } from "@/lib/gcs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -45,6 +44,7 @@ export async function POST(request: Request) {
     const safeName = original.replace(/\s+/g, "_").replace(/[^a-zA-Z0-9._-]/g, "");
     const objectName = `${kind}/${userId}/${Date.now()}-${safeName}`;
 
+    const { getStorage, getBucketName } = await import("@/lib/gcs");
     const storage = getStorage();
     const bucketName = getBucketName();
     const bucket = storage.bucket(bucketName);
@@ -63,4 +63,3 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: String(e?.message || e) }, { status: 500 });
   }
 }
-
