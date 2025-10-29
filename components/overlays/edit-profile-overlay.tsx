@@ -1,7 +1,7 @@
 "use client";
 import { useUI } from "@/app/context/ui-context";
 import { useUser } from "@/app/context/user";
-import { database, storage, ID, Permission, Role } from "@/libs/AppWriteClient";
+import { database, ID, Permission, Role } from "@/libs/AppWriteClient";
 import { useEffect, useMemo, useState } from "react";
 
 export default function EditProfileOverlay() {
@@ -23,7 +23,7 @@ export default function EditProfileOverlay() {
   const bucketId = process.env.NEXT_PUBLIC_BUCKET_ID as string;
 
   // Detect profile schema keys using admin API (server has APPWRITE_API_KEY)
-  const [keys, setKeys] = useState<{ idKey: string | null; firstKey: string | null; lastKey: string | null; bioKey: string | null; descKey: string | null; avatarKey: string | null; bannerKey: string | null }>({ idKey: null, firstKey: null, lastKey: null, bioKey: null, descKey: null, avatarKey: null, bannerKey: null });
+  const [keys, setKeys] = useState<{ idKey: string | null; firstKey: string | null; lastKey: string | null; bioKey: string | null; descKey: string | null; avatarKey: string | null; bannerKey: string | null; avatarUrlKey: string | null; bannerUrlKey: string | null }>({ idKey: null, firstKey: null, lastKey: null, bioKey: null, descKey: null, avatarKey: null, bannerKey: null, avatarUrlKey: null, bannerUrlKey: null });
   useEffect(() => {
     (async () => {
       try {
@@ -43,6 +43,8 @@ export default function EditProfileOverlay() {
           descKey: has("description") ? "description" : null,
           avatarKey: has("avatar_file_id") ? "avatar_file_id" : has("avatarId") ? "avatarId" : has("avatar") ? "avatar" : null,
           bannerKey: has("banner_file_id") ? "banner_file_id" : has("bannerId") ? "bannerId" : has("banner") ? "banner" : null,
+          avatarUrlKey: has("avatar_url") ? "avatar_url" : has("avatarUrl") ? "avatarUrl" : null,
+          bannerUrlKey: has("banner_url") ? "banner_url" : has("bannerUrl") ? "bannerUrl" : null,
         });
       } catch {}
     })();
@@ -63,8 +65,24 @@ export default function EditProfileOverlay() {
         setBio(String(any.bio ?? any.description ?? ""));
         const avatarId = any.avatar_file_id || any.avatarId || any.avatar || any.avatar_fileId;
         const bannerId = any.banner_file_id || any.bannerId || any.banner || any.banner_fileId;
-        try { if (avatarId) setAvatarPreview(storage.getFileView(String(bucketId), String(avatarId)).toString()); } catch {}
-        try { if (bannerId) setBannerPreview(storage.getFileView(String(bucketId), String(bannerId)).toString()); } catch {}
+        const avatarUrl = any.avatar_url || any.avatarUrl || null;
+        const bannerUrl = any.banner_url || any.bannerUrl || null;
+        try {
+          if (avatarUrl && typeof avatarUrl === 'string' && /^https?:\/\//i.test(avatarUrl)) {
+            setAvatarPreview(String(avatarUrl));
+          } else if (avatarId && bucketId) {
+            const { storage } = await import("@/libs/AppWriteClient");
+            setAvatarPreview(storage.getFileView(String(bucketId), String(avatarId)).toString());
+          }
+        } catch {}
+        try {
+          if (bannerUrl && typeof bannerUrl === 'string' && /^https?:\/\//i.test(bannerUrl)) {
+            setBannerPreview(String(bannerUrl));
+          } else if (bannerId && bucketId) {
+            const { storage } = await import("@/libs/AppWriteClient");
+            setBannerPreview(storage.getFileView(String(bucketId), String(bannerId)).toString());
+          }
+        } catch {}
       } catch {}
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -87,22 +105,28 @@ export default function EditProfileOverlay() {
     setBusy(true);
     setError("");
     try {
-      // Upload files if provided
-      let avatarId: string | undefined;
-      let bannerId: string | undefined;
-      // File permissions: public read so avatars/banners are visible
-      const filePerms = [
-        Permission.read(Role.any()),
-        Permission.update(Role.user(user.$id)),
-        Permission.delete(Role.user(user.$id)),
-      ];
+      // Upload files to GCS via API if provided
+      let avatarUrlStr: string | undefined;
+      let bannerUrlStr: string | undefined;
       if (avatarFile) {
-        const up = await storage.createFile(String(bucketId), ID.unique(), avatarFile, filePerms as any);
-        avatarId = String((up as any).$id);
+        const form = new FormData();
+        form.append("file", avatarFile);
+        form.append("kind", "avatar");
+        const up = await fetch("/api/gcs/upload", { method: "POST", body: form });
+        if (!up.ok) { const err = await up.json().catch(() => ({})); throw new Error(String(err?.error || `Avatar upload failed (${up.status})`)); }
+        const j = await up.json();
+        avatarUrlStr = String(j.url);
+        setAvatarPreview(avatarUrlStr);
       }
       if (bannerFile) {
-        const up = await storage.createFile(String(bucketId), ID.unique(), bannerFile, filePerms as any);
-        bannerId = String((up as any).$id);
+        const form = new FormData();
+        form.append("file", bannerFile);
+        form.append("kind", "banner");
+        const up = await fetch("/api/gcs/upload", { method: "POST", body: form });
+        if (!up.ok) { const err = await up.json().catch(() => ({})); throw new Error(String(err?.error || `Banner upload failed (${up.status})`)); }
+        const j = await up.json();
+        bannerUrlStr = String(j.url);
+        setBannerPreview(bannerUrlStr);
       }
 
       const perms = [
@@ -121,8 +145,17 @@ export default function EditProfileOverlay() {
       const bioTrim = bio.trim();
       if (keys.bioKey && bioTrim) payload[keys.bioKey] = bioTrim;
       if (keys.descKey && bioTrim) payload[keys.descKey] = bioTrim;
-      if (avatarId && keys.avatarKey) payload[keys.avatarKey] = avatarId;
-      if (bannerId && keys.bannerKey) payload[keys.bannerKey] = bannerId;
+      // Prefer URL fields when available
+      if (avatarUrlStr) {
+        if (keys.avatarUrlKey) payload[keys.avatarUrlKey] = avatarUrlStr;
+        else if (keys.avatarKey) payload[keys.avatarKey] = avatarUrlStr;
+        else payload["avatar_url"] = avatarUrlStr;
+      }
+      if (bannerUrlStr) {
+        if (keys.bannerUrlKey) payload[keys.bannerUrlKey] = bannerUrlStr;
+        else if (keys.bannerKey) payload[keys.bannerKey] = bannerUrlStr;
+        else payload["banner_url"] = bannerUrlStr;
+      }
 
       // Try upsert: create with deterministic ID, then fallback to update on conflict
       try {
@@ -151,11 +184,19 @@ export default function EditProfileOverlay() {
             if (has("lastName") && ln) clean["lastName"] = ln;
             if (has("bio") && bioTrim) clean["bio"] = bioTrim;
             if (has("description") && bioTrim) clean["description"] = bioTrim;
-            if (avatarId && (has("avatar_file_id") || has("avatarId") || has("avatar"))) {
-              clean[has("avatar_file_id") ? "avatar_file_id" : has("avatarId") ? "avatarId" : "avatar"] = avatarId;
+            if (avatarUrlStr) {
+              if (has("avatar_url")) clean["avatar_url"] = avatarUrlStr;
+              else if (has("avatarUrl")) clean["avatarUrl"] = avatarUrlStr;
+              else if (has("avatar") || has("avatarId") || has("avatar_file_id")) {
+                clean[has("avatar") ? "avatar" : has("avatarId") ? "avatarId" : "avatar_file_id"] = avatarUrlStr;
+              }
             }
-            if (bannerId && (has("banner_file_id") || has("bannerId") || has("banner"))) {
-              clean[has("banner_file_id") ? "banner_file_id" : has("bannerId") ? "bannerId" : "banner"] = bannerId;
+            if (bannerUrlStr) {
+              if (has("banner_url")) clean["banner_url"] = bannerUrlStr;
+              else if (has("bannerUrl")) clean["bannerUrl"] = bannerUrlStr;
+              else if (has("banner") || has("bannerId") || has("banner_file_id")) {
+                clean[has("banner") ? "banner" : has("bannerId") ? "bannerId" : "banner_file_id"] = bannerUrlStr;
+              }
             }
             await database.createDocument(String(dbId), String(colProfile), ID.custom(user.$id), clean, perms as any);
           } catch (ie) { throw ie; }

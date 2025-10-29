@@ -152,8 +152,16 @@ export default function ProfilePage() {
           {(() => {
             const any: any = profile || {};
             const bucket = process.env.NEXT_PUBLIC_BUCKET_ID as string | undefined;
-            const bannerId = any.banner_file_id || any.bannerId || any.banner || any.banner_fileId || any.bannerUrl || any.banner_url;
-            const url = bannerId && bucket ? storage.getFileView(String(bucket), String(bannerId)).toString() : "";
+            const bannerUrl = any.banner_url || any.bannerUrl || null;
+            const bannerId = any.banner_file_id || any.bannerId || any.banner || any.banner_fileId || null;
+            let url = "";
+            try {
+              if (bannerUrl && /^https?:\/\//i.test(String(bannerUrl))) {
+                url = String(bannerUrl);
+              } else if (bannerId && bucket) {
+                url = storage.getFileView(String(bucket), String(bannerId)).toString();
+              }
+            } catch {}
             return url ? <img src={url} alt="banner" className="h-full w-full object-cover" /> : null;
           })()}
           {/* Avatar */}
@@ -161,8 +169,16 @@ export default function ProfilePage() {
             {(() => {
               const any: any = profile || {};
               const bucket = process.env.NEXT_PUBLIC_BUCKET_ID as string | undefined;
-              const avatarId = any.avatar_file_id || any.avatarId || any.avatar || any.avatar_fileId || any.avatarUrl || any.avatar_url;
-              const url = avatarId && bucket ? storage.getFileView(String(bucket), String(avatarId)).toString() : "";
+              const avatarUrl = any.avatar_url || any.avatarUrl || null;
+              const avatarId = any.avatar_file_id || any.avatarId || any.avatar || any.avatar_fileId || null;
+              let url = "";
+              try {
+                if (avatarUrl && /^https?:\/\//i.test(String(avatarUrl))) {
+                  url = String(avatarUrl);
+                } else if (avatarId && bucket) {
+                  url = storage.getFileView(String(bucket), String(avatarId)).toString();
+                }
+              } catch {}
               return url ? <img src={url} alt="avatar" className="h-full w-full object-cover" /> : null;
             })()}
           </div>
