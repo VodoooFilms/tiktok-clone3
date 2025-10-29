@@ -3,17 +3,31 @@ import MainLayout from "@/app/layouts/MainLayout";
 import { useUser } from "@/app/context/user";
 import { useUI } from "@/app/context/ui-context";
 import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { database } from "@/libs/AppWriteClient";
 
 export default function ProfileSetupPage() {
   const { user, loading } = useUser();
   const { openAuth, openEditProfile } = useUI();
+  const router = useRouter();
+  const dbId = process.env.NEXT_PUBLIC_DATABASE_ID as string;
+  const colProfile = process.env.NEXT_PUBLIC_COLLECTION_ID_PROFILE as string;
 
   useEffect(() => {
-    if (!loading && user) {
-      // Auto-open the edit overlay when arriving here
-      openEditProfile();
-    }
-  }, [user, loading, openEditProfile]);
+    (async () => {
+      if (loading) return;
+      if (!user) return;
+      try {
+        await database.getDocument(dbId, colProfile, user.$id);
+        // Profile exists → skip setup
+        router.replace("/");
+      } catch {
+        // No profile yet → open editor
+        openEditProfile();
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.$id, loading]);
 
   return (
     <MainLayout>

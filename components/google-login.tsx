@@ -10,16 +10,16 @@ export default function GoogleLoginButton() {
   const handleGoogleLogin = async () => {
     try {
       setLoading(true);
-      
-      // Always use production URL in production, regardless of other settings
-      const redirectUrl = 'https://tiktok-clone3-red.vercel.app';
-      console.log('Debug - Redirect URL:', redirectUrl);
+      // Prefer configured base URL; fallback to current origin
+      const base = (process.env.NEXT_PUBLIC_APP_URL || (typeof window !== 'undefined' ? window.location.origin : '')) as string;
+      const success = `${base}/auth/callback`;
+      const failure = `${base}/auth/error`;
       
       // Create the OAuth2 session with Appwrite
       await account.createOAuth2Session(
         OAuthProvider.Google,
-        redirectUrl, // Success URL
-        `${redirectUrl}/auth/error` // Failure URL
+        success,
+        failure
       );
     } catch (error) {
       console.error("Google login error:", error);
