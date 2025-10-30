@@ -3,7 +3,7 @@ import UploadLayout from "@/app/layouts/UploadLayout";
 import { useState, useMemo, useRef } from "react";
 import { useUser } from "@/app/context/user";
 import { database, ID, Permission, Role } from "@/libs/AppWriteClient";
-import { useUpload } from "@/lib/hooks/useUpload";
+// Direct upload via signed URL
 import { useRouter } from "next/navigation";
 
 const envLimit = Number(process.env.NEXT_PUBLIC_UPLOAD_MAX_MB ?? "");
@@ -23,7 +23,28 @@ export default function UploadPage() {
   const previewUrl = useMemo(() => (file ? URL.createObjectURL(file) : ""), [file]);
   const dbId = process.env.NEXT_PUBLIC_DATABASE_ID as string | undefined;
   const colPost = process.env.NEXT_PUBLIC_COLLECTION_ID_POST as string | undefined;
-  const { upload } = useUpload();
+  async function fetchSignedUrl(args: { fileName: string; contentType?: string; prefix?: string }) {
+    const res = await fetch("/api/gcs/sign", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(args),
+    });
+    if (!res.ok) {
+      let msg = "Failed to get signed URL";
+      try {
+        const data = await res.json();
+        if (data?.error) msg = String(data.error);
+      } catch {}
+      throw new Error(msg);
+    }
+    return (await res.json()) as {
+      uploadUrl: string;
+      method?: string;
+      headers?: Record<string, string>;
+      objectName: string;
+      publicUrl: string;
+    };
+  }
 
   const write = (line: string) => setLog((p) => (p ? p + "\n" + line : line));
   const router = useRouter();
@@ -45,11 +66,30 @@ export default function UploadPage() {
       write(`# Upload start @ ${new Date().toISOString()}`);
       write(`file: ${file.name} (${file.size} bytes)`);
 
-      // Upload to GCS
+      // Upload to GCS using signed URL
       setProgress(null); // indeterminate
       const prefix = `videos/${user.$id}`;
-      const uploadRes = await upload(file, { prefix });
-      write(`gcs (${uploadRes.strategy}): OK object=${uploadRes.objectName}`);
+      const meta = await fetchSignedUrl({ fileName: file.name, contentType: file.type, prefix });
+      write(`signed: OK url ready for ${meta.objectName}`);
+
+      const uploadHeaders: Record<string, string> = { ...(meta.headers || {}) };
+      if (!uploadHeaders["Content-Type"] && file.type) uploadHeaders["Content-Type"] = file.type;
+      const method = (meta.method || "PUT").toUpperCase();
+      const putRes = await fetch(meta.uploadUrl, { method, headers: uploadHeaders, body: file });
+      if (!putRes.ok) {
+        let msg = `Direct upload failed (${putRes.status})`;
+        try {
+          const t = await putRes.text();
+          if (t) msg = t.slice(0, 200);
+        } catch {}
+        throw new Error(msg);
+      }
+      const uploadRes = {
+        strategy: "direct",
+        objectName: meta.objectName,
+        publicUrl: meta.publicUrl,
+      } as const;
+      write(`gcs (direct): OK object=${uploadRes.objectName}`);
 
       // Prepare Post doc for your schema (snake_case)
       const baseText = (text || "").slice(0, 150);
