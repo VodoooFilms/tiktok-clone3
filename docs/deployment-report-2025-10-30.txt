@@ -41,3 +41,22 @@ Smoke Checklist
 
 Timestamp
 - 2025-10-30
+ 
+---
+Welcome Popup & UI Session Wrap
+- Added fullscreen WelcomePopup with dark/iridescent style.
+- Uses logo and lottieyaddai.png illustration; responsive sizing.
+- New copy set and refined (removed “original worlds”).
+- Shown once per user via localStorage key: yaddai_welcome_seen=true.
+- Integrated on home: app/(main)/page.tsx.
+- Attempted global iridescent accents (TopNav/SideNav); reverted per feedback.
+- Pushed to origin/master and origin/main.
+
+Files Touched
+- components/WelcomePopup.tsx
+- app/(main)/page.tsx
+- public/images/lottieyaddai.png
+
+Next Actions
+- If desired, selectively apply gradient accents to specific CTAs only.
+- Configure Vercel production branch as master (or switch to main).
