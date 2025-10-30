@@ -1,20 +1,27 @@
 "use client";
-import { storage } from "@/libs/AppWriteClient";
+const UPLOAD_ENDPOINT = "/api/uploads";
 
 export type UploadOptions = {
   maxSizeMB?: number;
   mimeWhitelist?: string[];
   retries?: number;
+  prefix?: string;
+};
+
+export type UploadResult = {
+  publicUrl: string;
+  objectName: string;
+  contentType?: string;
+  size: number;
 };
 
 export function useUpload() {
-  const bucketId = process.env.NEXT_PUBLIC_BUCKET_ID as string;
-
-  const upload = async (file: File, opts: UploadOptions = {}) => {
+  const upload = async (file: File, opts: UploadOptions = {}): Promise<UploadResult> => {
     const {
       maxSizeMB = 100,
       mimeWhitelist = ["video/mp4", "video/quicktime", "video/webm"],
       retries = 1,
+      prefix,
     } = opts;
 
     if (!file) throw new Error("No file provided");
@@ -29,8 +36,28 @@ export function useUpload() {
     // Use deterministic unique() but retries on transient errors
     while (true) {
       try {
-        const res = await storage.createFile(bucketId, "unique()", file);
-        return res; // contains $id, bucketId, etc.
+        const formData = new FormData();
+        formData.append("file", file);
+        if (prefix) {
+          formData.append("prefix", prefix);
+        }
+
+        const res = await fetch(UPLOAD_ENDPOINT, {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          const message = data?.error ? String(data.error) : `Upload failed (${res.status})`;
+          throw new Error(message);
+        }
+
+        const payload = (await res.json()) as UploadResult;
+        if (!payload?.publicUrl) {
+          throw new Error("Upload response missing publicUrl");
+        }
+        return payload;
       } catch (e: any) {
         attempt++;
         const msg = String(e?.message || e || "");
@@ -41,14 +68,5 @@ export function useUpload() {
       }
     }
   };
-
-  const getImagePreviewURL = (fileId: string, width = 200, height = 200) => {
-    return storage.getFilePreview(bucketId, fileId, width, height).toString();
-  };
-
-  const getFileViewURL = (fileId: string) => {
-    return storage.getFileView(bucketId, fileId).toString();
-  };
-
-  return { upload, getImagePreviewURL, getFileViewURL };
+  return { upload };
 }

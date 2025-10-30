@@ -20,7 +20,15 @@ export default function PostCard({ doc }: Props) {
   const dbId = process.env.NEXT_PUBLIC_DATABASE_ID as string | undefined;
   const likeCol = process.env.NEXT_PUBLIC_COLLECTION_ID_LIKE as string | undefined;
   const followCol = process.env.NEXT_PUBLIC_COLLECTION_ID_FOLLOW as string | undefined;
-  const get = (keys: string[]) => keys.find((k) => k in (doc as any));
+  const get = (keys: string[]) => {
+    const obj: any = doc as any;
+    if (!obj || (typeof obj !== "object" && typeof obj !== "function")) return undefined;
+    try {
+      return keys.find((k) => k in obj);
+    } catch {
+      return undefined;
+    }
+  };
 
   const videoUrlKey = get(["video_url", "videoUrl"]);
   const videoIdKey = get(["video_id", "videoId", "file_id", "fileId"]);
@@ -49,11 +57,17 @@ export default function PostCard({ doc }: Props) {
   useEffect(() => {
     let src = "";
     if (videoUrlKey) {
-      src = String((doc as any)[videoUrlKey]);
-    } else if (videoIdKey && bucketId) {
-      try {
-        src = storage.getFileView(String(bucketId), String((doc as any)[videoIdKey])).toString();
-      } catch {}
+      const candidate = (doc as any)[videoUrlKey];
+      if (candidate) src = String(candidate);
+    } else if (videoIdKey) {
+      const raw = (doc as any)[videoIdKey];
+      if (typeof raw === "string" && /^https?:\/\//i.test(raw)) {
+        src = raw;
+      } else if (bucketId) {
+        try {
+          src = storage.getFileView(String(bucketId), String(raw)).toString();
+        } catch {}
+      }
     }
     setVideoSrc(src);
   }, [bucketId, doc, storage]);
@@ -116,9 +130,14 @@ export default function PostCard({ doc }: Props) {
   const authorAvatarUrl = useMemo(() => {
     if (!authorProfile || !bucketId) return "";
     const any: any = authorProfile;
-    const avatarId = any.avatar_file_id || any.avatarId || any.avatar || any.avatar_fileId || any.avatarUrl || any.avatar_url;
+    const avatarUrlCandidate = any.avatar_url || any.avatarUrl || (typeof any.avatar === "string" && /^https?:\/\//i.test(any.avatar) ? any.avatar : null);
+    if (avatarUrlCandidate) {
+      return String(avatarUrlCandidate);
+    }
+    const legacyId = any.avatar_file_id || any.avatarId || any.avatar_fileId || any.avatar;
+    if (!legacyId) return "";
     try {
-      return avatarId ? storage.getFileView(String(bucketId), String(avatarId)).toString() : "";
+      return storage.getFileView(String(bucketId), String(legacyId)).toString();
     } catch {
       return "";
     }
@@ -482,7 +501,7 @@ export default function PostCard({ doc }: Props) {
               </button>
               {/* Share */}
               <button
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); const shareUrl = typeof window !== 'undefined' ? `${window.location.origin}/post/${(doc as any).$id}` : ''; (async () => { try { if (navigator.share) await navigator.share({ url: shareUrl }); else if (navigator.clipboard) await navigator.clipboard.writeText(shareUrl); } catch {} })(); }}
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); openShare(String((doc as any).$id)); }}
                 className="grid h-12 w-12 place-items-center rounded-full border border-neutral-700 hover:bg-neutral-900 text-neutral-200"
                 title="Share"
                 aria-label="Share post"
@@ -553,8 +572,3 @@ export default function PostCard({ doc }: Props) {
     </article>
   );
 }
-
-
-
-
-

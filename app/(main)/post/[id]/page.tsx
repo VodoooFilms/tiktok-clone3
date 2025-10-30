@@ -196,10 +196,15 @@ export default function PostDetailPage() {
     ]) || "user_id";
 
     if (videoUrlKey) videoSrc = String((doc as any)[videoUrlKey]);
-    else if (videoIdKey && bucketId) {
-      try {
-        videoSrc = storage.getFileView(String(bucketId), String((doc as any)[videoIdKey])).toString();
-      } catch {}
+    else if (videoIdKey) {
+      const raw = (doc as any)[videoIdKey];
+      if (typeof raw === "string" && /^https?:\/\//i.test(raw)) {
+        videoSrc = raw;
+      } else if (bucketId) {
+        try {
+          videoSrc = storage.getFileView(String(bucketId), String(raw)).toString();
+        } catch {}
+      }
     }
     text = String((doc as any)[textKey] ?? "");
     caption = String((doc as any).caption ?? "");

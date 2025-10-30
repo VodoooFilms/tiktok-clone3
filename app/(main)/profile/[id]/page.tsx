@@ -34,8 +34,13 @@ export default function ProfilePage() {
   const isSelf = user?.$id === String(userId);
   const hasAvatar = useMemo(() => {
     const any: any = profile || {};
-    const avatarId = any.avatar_file_id || any.avatarId || any.avatar || any.avatar_fileId || any.avatarUrl || any.avatar_url;
-    return Boolean(avatarId);
+    const avatarUrlCandidate =
+      any.avatar_url ||
+      any.avatarUrl ||
+      (typeof any.avatar === "string" && /^https?:\/\//i.test(any.avatar) ? any.avatar : null);
+    if (avatarUrlCandidate) return true;
+    const legacyId = any.avatar_file_id || any.avatarId || any.avatar_fileId || any.avatar;
+    return Boolean(legacyId);
   }, [profile]);
 
   const fetchPosts = async () => {
@@ -151,19 +156,43 @@ export default function ProfilePage() {
         <div className="relative h-40 w-full bg-neutral-900">
           {(() => {
             const any: any = profile || {};
+            const urlCandidate =
+              any.banner_url ||
+              any.bannerUrl ||
+              (typeof any.banner === "string" && /^https?:\/\//i.test(any.banner) ? any.banner : null);
+            if (urlCandidate) {
+              return <img src={String(urlCandidate)} alt="banner" className="h-full w-full object-cover" />;
+            }
             const bucket = process.env.NEXT_PUBLIC_BUCKET_ID as string | undefined;
-            const bannerId = any.banner_file_id || any.bannerId || any.banner || any.banner_fileId || any.bannerUrl || any.banner_url;
-            const url = bannerId && bucket ? storage.getFileView(String(bucket), String(bannerId)).toString() : "";
-            return url ? <img src={url} alt="banner" className="h-full w-full object-cover" /> : null;
+            const legacyId = any.banner_file_id || any.bannerId || any.banner_fileId || any.banner;
+            if (!legacyId || !bucket) return null;
+            try {
+              const url = storage.getFileView(String(bucket), String(legacyId)).toString();
+              return url ? <img src={url} alt="banner" className="h-full w-full object-cover" /> : null;
+            } catch {
+              return null;
+            }
           })()}
           {/* Avatar */}
           <div className="absolute -bottom-10 left-4 h-20 w-20 overflow-hidden rounded-full border-2 border-white bg-neutral-800">
             {(() => {
               const any: any = profile || {};
+              const urlCandidate =
+                any.avatar_url ||
+                any.avatarUrl ||
+                (typeof any.avatar === "string" && /^https?:\/\//i.test(any.avatar) ? any.avatar : null);
+              if (urlCandidate) {
+                return <img src={String(urlCandidate)} alt="avatar" className="h-full w-full object-cover" />;
+              }
               const bucket = process.env.NEXT_PUBLIC_BUCKET_ID as string | undefined;
-              const avatarId = any.avatar_file_id || any.avatarId || any.avatar || any.avatar_fileId || any.avatarUrl || any.avatar_url;
-              const url = avatarId && bucket ? storage.getFileView(String(bucket), String(avatarId)).toString() : "";
-              return url ? <img src={url} alt="avatar" className="h-full w-full object-cover" /> : null;
+              const legacyId = any.avatar_file_id || any.avatarId || any.avatar_fileId || any.avatar;
+              if (!legacyId || !bucket) return null;
+              try {
+                const url = storage.getFileView(String(bucket), String(legacyId)).toString();
+                return url ? <img src={url} alt="avatar" className="h-full w-full object-cover" /> : null;
+              } catch {
+                return null;
+              }
             })()}
           </div>
         </div>
@@ -212,9 +241,21 @@ export default function ProfilePage() {
             <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
               {posts.map((p) => {
                 const any = p as any;
-                const url = any.video_url || any.videoUrl || "";
                 const vid = any.video_id || any.videoId || any.file_id || any.fileId;
-                const src = url || (vid && bucketId ? storage.getFileView(String(bucketId), String(vid)).toString() : "");
+                const directUrl =
+                  any.video_url ||
+                  any.videoUrl ||
+                  (typeof vid === "string" && /^https?:\/\//i.test(vid) ? vid : "");
+                let src = "";
+                if (directUrl) {
+                  src = String(directUrl);
+                } else if (vid && bucketId) {
+                  try {
+                    src = storage.getFileView(String(bucketId), String(vid)).toString();
+                  } catch {
+                    src = "";
+                  }
+                }
                 return (
                   <a key={p.$id} href={`/post/${p.$id}`} className="block overflow-hidden rounded border border-neutral-800 bg-black">
                     {src ? (

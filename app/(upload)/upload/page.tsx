@@ -2,7 +2,8 @@
 import UploadLayout from "@/app/layouts/UploadLayout";
 import { useState, useMemo, useRef } from "react";
 import { useUser } from "@/app/context/user";
-import { storage, database, ID, Permission, Role } from "@/libs/AppWriteClient";
+import { database, ID, Permission, Role } from "@/libs/AppWriteClient";
+import { useUpload } from "@/lib/hooks/useUpload";
 import { useRouter } from "next/navigation";
 
 export default function UploadPage() {
@@ -17,9 +18,9 @@ export default function UploadPage() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   const previewUrl = useMemo(() => (file ? URL.createObjectURL(file) : ""), [file]);
-  const bucketId = process.env.NEXT_PUBLIC_BUCKET_ID as string | undefined;
   const dbId = process.env.NEXT_PUBLIC_DATABASE_ID as string | undefined;
   const colPost = process.env.NEXT_PUBLIC_COLLECTION_ID_POST as string | undefined;
+  const { upload } = useUpload();
 
   const write = (line: string) => setLog((p) => (p ? p + "\n" + line : line));
   const router = useRouter();
@@ -32,7 +33,6 @@ export default function UploadPage() {
     setLog("");
     try {
       if (!user) throw new Error("No session. Log in first.");
-      if (!bucketId) throw new Error("Missing NEXT_PUBLIC_BUCKET_ID");
       if (!dbId || !colPost) throw new Error("Missing NEXT_PUBLIC_DATABASE_ID/COLLECTION_ID_POST");
       if (!file) throw new Error("Pick a video file first");
       const MAX_MB = 100; // adjust as needed
@@ -43,30 +43,28 @@ export default function UploadPage() {
       write(`# Upload start @ ${new Date().toISOString()}`);
       write(`file: ${file.name} (${file.size} bytes)`);
 
-      // Upload to storage
-      const fileId = ID.unique();
+      // Upload to GCS
       setProgress(null); // indeterminate
-      const createdFile = await storage.createFile(String(bucketId), fileId, file, [
-        Permission.read(Role.any()),
-        Permission.update(Role.user(user.$id)),
-        Permission.delete(Role.user(user.$id)),
-      ] as any);
-      const fileView = storage.getFileView(String(bucketId), String(createdFile.$id)).toString();
-      write(`storage: OK id=${createdFile.$id}`);
+      const prefix = `videos/${user.$id}`;
+      const uploadRes = await upload(file, { prefix });
+      write(`gcs: OK object=${uploadRes.objectName}`);
 
       // Prepare Post doc for your schema (snake_case)
       const baseText = (text || "").slice(0, 150);
       const baseCommon: any = { user_id: user.$id };
       // Build variants with optional text (no custom created_at; rely on $createdAt)
-      const withUrl: any = { ...baseCommon, video_url: fileView };
-      const withId: any = { ...baseCommon, video_id: createdFile.$id };
+      const withUrl: any = { ...baseCommon, video_url: uploadRes.publicUrl };
+      const withUrlAndObject: any = { ...withUrl, video_object_name: uploadRes.objectName };
+      const withLegacyId: any = { ...baseCommon, video_id: uploadRes.publicUrl };
       if (baseText) {
         withUrl.text = baseText;
-        withId.text = baseText;
+        withUrlAndObject.text = baseText;
+        withLegacyId.text = baseText;
       }
       const variants: Array<{ name: string; doc: any }> = [
+        { name: "snake_url_obj", doc: withUrlAndObject },
         { name: "snake_url_min", doc: withUrl },
-        { name: "snake_id_min", doc: withId },
+        { name: "legacy_id_url", doc: withLegacyId },
       ];
       const perms = [
         Permission.read(Role.any()),
