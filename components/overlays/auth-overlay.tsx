@@ -6,7 +6,15 @@ import { OAuthProvider } from "appwrite";
 
 function getRedirectURL() {
   const envUrl = process.env.NEXT_PUBLIC_APP_URL;
-  if (envUrl && envUrl.length) return envUrl;
+  if (envUrl && envUrl.length) {
+    try {
+      const withScheme = /^https?:\/\//i.test(envUrl) ? envUrl : `https://${envUrl}`;
+      const u = new URL(withScheme);
+      return u.origin;
+    } catch {
+      // fallthrough
+    }
+  }
   if (typeof window !== "undefined") return window.location.origin;
   return "http://localhost:3000";
 }
