@@ -1,0 +1,36 @@
+Yaddai — Reporte de cambios (2025-10-30)
+
+Resumen
+- Se eliminó la pantalla intermedia de “landing” que aparecía antes del feed.
+- La ruta raíz “/” vuelve a mostrar directamente el feed principal.
+- Se revirtieron enlaces que apuntaban a “/home” para que usen “/”.
+- Cambios publicados en origin/master y origin/main.
+
+Detalles de implementación
+- Removido app/page.tsx (pantalla extra).
+- Restaurado el feed en app/(main)/page.tsx.
+- Enlaces actualizados para coherencia de navegación:
+  • app/layouts/includes/SideNavMain.tsx → “For You” a “/”.
+  • components/post-card.tsx → botón inferior “For You” a “/”.
+  • components/side-nav.tsx → “Home” a “/”.
+
+Commit y ramas
+- Commit: 04634a6 — "Remove extra landing page: show feed at root and revert links to '/'".
+- Push realizado a:
+  • origin/master (actualizado).
+  • origin/main (HEAD sincronizado).
+
+Comportamiento esperado
+- Al entrar a “/” se muestra el feed principal.
+- El popup de bienvenida seguirá apareciendo solo la primera vez (controlado por localStorage: yaddai_welcome_seen).
+
+Verificación rápida (post-deploy)
+- Navegar a “/”: se ve el feed sin pantalla intermedia.
+- Navegación lateral e inferior: el tab “For You/Home” apunta a “/”.
+
+Pendientes opcionales
+- Si se desea, hacer que el popup de bienvenida se muestre siempre (ignorar cache) o desactivarlo temporalmente.
+
+Fecha
+- 2025-10-30
+
