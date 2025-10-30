@@ -1,0 +1,43 @@
+Deployment Report – Yaddai
+
+Summary
+- Enabled large-file direct uploads to GCS via Signed URLs.
+- Updated bucket CORS to include production and preview origins.
+- Aligned remote main with local working state (no merges).
+- Verified local and production flows after redeploy.
+
+Key Code Changes
+- app/api/uploads/route.ts: dual strategies (server/direct), size guard, signed URL meta.
+- lib/server/gcs.ts: V4 signed write URL helper, configurable expiry.
+- lib/hooks/useUpload.ts: client direct upload path, retries, error handling.
+- app/(upload)/upload/page.tsx: UX, logs, dynamic size limit.
+- app/layout.tsx: stable meta anchor to avoid hydration diff.
+
+Bucket CORS (gs://yaddai-media)
+- Origins: https://www.yaddai.com, https://yaddai.com, https://tiktok-clone3-red.vercel.app, http://localhost:3000
+- Methods: GET, HEAD, OPTIONS, PUT
+- Response headers: Content-Type, x-goog-resumable, x-goog-meta-*
+- maxAgeSeconds: 3600
+
+Branches & Deploy
+- Forced master -> main to mirror local working tree.
+- Require redeploy on Vercel for env changes.
+
+Environment Notes
+- Ensure all NEXT_PUBLIC_* and GCS_* vars in Vercel match .env.local.
+- NEXT_PUBLIC_APP_URL set to https://www.yaddai.com
+
+Outstanding Follow-ups
+- Protect /api/admin/collection (auth/role) or remove in production.
+- Add auth/rate limiting to /api/uploads before issuing signed URLs.
+- Replace truncated deterministic IDs for likes/follows with full IDs or hashed keys.
+- Consider pinning Next/React/Tailwind to stable releases if not already.
+
+Smoke Checklist
+- Login works on production domain.
+- Feed loads posts.
+- Small upload (server strategy) succeeds.
+- Large upload (direct strategy) succeeds; preflight and PUT return 2xx.
+
+Timestamp
+- 2025-10-30

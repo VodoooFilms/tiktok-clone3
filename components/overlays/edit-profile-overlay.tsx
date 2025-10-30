@@ -37,6 +37,8 @@ export default function EditProfileOverlay() {
     bannerUrlKey: string | null;
     avatarObjKey: string | null;
     bannerObjKey: string | null;
+    avatarStrKey: string | null;
+    bannerStrKey: string | null;
   }>({
     idKey: null,
     firstKey: null,
@@ -49,6 +51,8 @@ export default function EditProfileOverlay() {
     bannerUrlKey: null,
     avatarObjKey: null,
     bannerObjKey: null,
+    avatarStrKey: null,
+    bannerStrKey: null,
   });
   useEffect(() => {
     (async () => {
@@ -73,6 +77,8 @@ export default function EditProfileOverlay() {
           bannerUrlKey: has("banner_url") ? "banner_url" : has("bannerUrl") ? "bannerUrl" : null,
           avatarObjKey: has("avatar_object_name") ? "avatar_object_name" : has("avatarObjectName") ? "avatarObjectName" : null,
           bannerObjKey: has("banner_object_name") ? "banner_object_name" : has("bannerObjectName") ? "bannerObjectName" : null,
+          avatarStrKey: has("avatar") ? "avatar" : null,
+          bannerStrKey: has("banner") ? "banner" : null,
         });
       } catch {}
     })();
@@ -140,12 +146,23 @@ export default function EditProfileOverlay() {
             objectName: string;
           }
         | undefined;
+      // Allow common image types for avatar/banner uploads
+      const imageMimes = [
+        "image/png",
+        "image/jpeg",
+        "image/jpg",
+        "image/webp",
+        "image/gif",
+        "image/avif",
+        "image/heic",
+        "image/heif",
+      ];
       if (avatarFile) {
-        const up = await upload(avatarFile, { prefix: `avatars/${user.$id}` });
+        const up = await upload(avatarFile, { prefix: `avatars/${user.$id}`, mimeWhitelist: imageMimes });
         avatarUpload = { url: up.publicUrl, objectName: up.objectName };
       }
       if (bannerFile) {
-        const up = await upload(bannerFile, { prefix: `banners/${user.$id}` });
+        const up = await upload(bannerFile, { prefix: `banners/${user.$id}`, mimeWhitelist: imageMimes });
         bannerUpload = { url: up.publicUrl, objectName: up.objectName };
       }
 
@@ -165,14 +182,17 @@ export default function EditProfileOverlay() {
       const bioTrim = bio.trim();
       if (keys.bioKey && bioTrim) payload[keys.bioKey] = bioTrim;
       if (keys.descKey && bioTrim) payload[keys.descKey] = bioTrim;
+      const isFileIdKey = (k: string | null) => !!k && /(file_?id|^.*(?:^|_|)id$)/i.test(k);
       if (avatarUpload) {
         if (keys.avatarUrlKey) payload[keys.avatarUrlKey] = avatarUpload.url;
-        if (keys.avatarKey) payload[keys.avatarKey] = avatarUpload.url;
+        if (keys.avatarKey && !isFileIdKey(keys.avatarKey)) payload[keys.avatarKey] = avatarUpload.url;
+        if (!keys.avatarUrlKey && keys.avatarStrKey) payload[keys.avatarStrKey] = avatarUpload.url;
         if (keys.avatarObjKey) payload[keys.avatarObjKey] = avatarUpload.objectName;
       }
       if (bannerUpload) {
         if (keys.bannerUrlKey) payload[keys.bannerUrlKey] = bannerUpload.url;
-        if (keys.bannerKey) payload[keys.bannerKey] = bannerUpload.url;
+        if (keys.bannerKey && !isFileIdKey(keys.bannerKey)) payload[keys.bannerKey] = bannerUpload.url;
+        if (!keys.bannerUrlKey && keys.bannerStrKey) payload[keys.bannerStrKey] = bannerUpload.url;
         if (keys.bannerObjKey) payload[keys.bannerObjKey] = bannerUpload.objectName;
       }
 
@@ -209,8 +229,10 @@ export default function EditProfileOverlay() {
               if (has("avatarUrl")) clean["avatarUrl"] = url;
               if (has("avatar_object_name")) clean["avatar_object_name"] = avatarUpload.objectName;
               if (has("avatarObjectName")) clean["avatarObjectName"] = avatarUpload.objectName;
-              if (has("avatar_file_id") || has("avatarId") || has("avatar")) {
-                clean[has("avatar_file_id") ? "avatar_file_id" : has("avatarId") ? "avatarId" : "avatar"] = url;
+              // Only write URL into a generic 'avatar' string field. Do not
+              // write into file-id fields like avatar_file_id/avatarId.
+              if (!has("avatar_url") && !has("avatarUrl") && has("avatar")) {
+                clean["avatar"] = url;
               }
             }
             if (bannerUpload) {
@@ -219,8 +241,8 @@ export default function EditProfileOverlay() {
               if (has("bannerUrl")) clean["bannerUrl"] = url;
               if (has("banner_object_name")) clean["banner_object_name"] = bannerUpload.objectName;
               if (has("bannerObjectName")) clean["bannerObjectName"] = bannerUpload.objectName;
-              if (has("banner_file_id") || has("bannerId") || has("banner")) {
-                clean[has("banner_file_id") ? "banner_file_id" : has("bannerId") ? "bannerId" : "banner"] = url;
+              if (!has("banner_url") && !has("bannerUrl") && has("banner")) {
+                clean["banner"] = url;
               }
             }
             await database.createDocument(String(dbId), String(colProfile), ID.custom(user.$id), clean, perms as any);
