@@ -50,7 +50,7 @@ export default function WelcomePopup({ onClose }: WelcomePopupProps) {
           >
             {/* Top heading */}
             <div className="mb-4 text-white/90 text-2xl md:text-3xl font-semibold tracking-tight">
-              Welcome
+              Welcome to
             </div>
             {/* Top illustration */}
             <div className="flex w-full justify-center">
@@ -78,10 +78,10 @@ export default function WelcomePopup({ onClose }: WelcomePopupProps) {
             <h2 className="sr-only">YADDAI — AI Video Playground</h2>
             {/* Subtitle */}
             <p className="hidden mt-2 text-sm leading-relaxed text-violet-200/70">
-              Yaddai is a space for creators exploring the edge of art and technology. We use AI responsibly to craft new stories, new characters, and original worlds — always with respect for creativity, copyright, and the people behind great ideas.
+              Yaddai is a space for creators exploring the edge of art and technology. We use AI responsibly to craft new stories and new characters, and original worlds — always with respect for creativity, copyright, and the people behind great ideas.
             </p>
             <p className="mt-2 text-sm leading-relaxed text-violet-200/70">
-              Yaddai is a space for entertainment and AI creation. We share and use artificial intelligence responsibly to craft new stories, new characters — always with respect for creativity, copyright, and the people behind great ideas.
+              Yaddai is a space for entertainment and AI creation. We share and use artificial intelligence responsibly to craft new stories and new characters — always with respect for creativity, copyright, and the people behind great ideas.
             </p>
 
             {/* Actions */}
