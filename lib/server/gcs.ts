@@ -11,6 +11,11 @@ let decodedCredentials: ServiceAccountCredentials | null = null;
 let credentialsInitialized = false;
 
 const bucketName = process.env.GCS_BUCKET_NAME;
+const rawSignedExpiry = Number(process.env.GCS_SIGNED_URL_EXPIRY_SEC ?? "");
+const SIGNED_URL_EXPIRY_SECONDS =
+  Number.isFinite(rawSignedExpiry) && rawSignedExpiry > 0
+    ? Math.min(Math.max(rawSignedExpiry, 60), 60 * 60 * 24)
+    : 600;
 
 function decodeServiceAccount(): ServiceAccountCredentials | null {
   if (credentialsInitialized) {
@@ -104,6 +109,35 @@ export async function uploadBufferToGcs(
 
   await file.save(buffer, options);
   return file;
+}
+
+export async function createSignedUploadUrl(
+  objectName: string,
+  contentType?: string,
+  expiresInSeconds?: number,
+) {
+  const bucket = getBucket();
+  const file = bucket.file(objectName);
+  const effectiveExpirySeconds = expiresInSeconds && expiresInSeconds > 0
+    ? Math.min(Math.max(expiresInSeconds, 60), 60 * 60 * 24)
+    : SIGNED_URL_EXPIRY_SECONDS;
+  const expiresAt = Date.now() + effectiveExpirySeconds * 1000;
+  const safeContentType = contentType && contentType.trim().length > 0 ? contentType : "application/octet-stream";
+  const [url] = await file.getSignedUrl({
+    action: "write",
+    version: "v4",
+    expires: expiresAt,
+    contentType: safeContentType,
+  });
+
+  return {
+    url,
+    method: "PUT" as const,
+    headers: {
+      "Content-Type": safeContentType,
+    },
+    expiresAt: new Date(expiresAt).toISOString(),
+  };
 }
 
 function cryptoRandom(byteLength: number) {

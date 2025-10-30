@@ -6,6 +6,9 @@ import { database, ID, Permission, Role } from "@/libs/AppWriteClient";
 import { useUpload } from "@/lib/hooks/useUpload";
 import { useRouter } from "next/navigation";
 
+const envLimit = Number(process.env.NEXT_PUBLIC_UPLOAD_MAX_MB ?? "");
+const MAX_UPLOAD_MB = Number.isFinite(envLimit) && envLimit > 0 ? envLimit : 100;
+
 export default function UploadPage() {
   const { user } = useUser();
   const [file, setFile] = useState<File | null>(null);
@@ -35,9 +38,8 @@ export default function UploadPage() {
       if (!user) throw new Error("No session. Log in first.");
       if (!dbId || !colPost) throw new Error("Missing NEXT_PUBLIC_DATABASE_ID/COLLECTION_ID_POST");
       if (!file) throw new Error("Pick a video file first");
-      const MAX_MB = 100; // adjust as needed
-      if (file.size > MAX_MB * 1024 * 1024) {
-        throw new Error(`File too large. Max ${MAX_MB}MB`);
+      if (file.size > MAX_UPLOAD_MB * 1024 * 1024) {
+        throw new Error(`File too large. Max ${MAX_UPLOAD_MB}MB`);
       }
 
       write(`# Upload start @ ${new Date().toISOString()}`);
@@ -47,7 +49,7 @@ export default function UploadPage() {
       setProgress(null); // indeterminate
       const prefix = `videos/${user.$id}`;
       const uploadRes = await upload(file, { prefix });
-      write(`gcs: OK object=${uploadRes.objectName}`);
+      write(`gcs (${uploadRes.strategy}): OK object=${uploadRes.objectName}`);
 
       // Prepare Post doc for your schema (snake_case)
       const baseText = (text || "").slice(0, 150);
@@ -148,6 +150,9 @@ export default function UploadPage() {
               className="mt-1 w-full rounded-xl border border-dashed border-neutral-700 bg-neutral-950 px-3 py-2 text-white file:mr-4 file:rounded-lg file:border-0 file:bg-emerald-600 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
               required
             />
+            <span className="mt-1 block text-xs text-neutral-500">
+              Max {MAX_UPLOAD_MB}MB - MP4, MOV o WebM
+            </span>
           </label>
           <div className="mt-3 flex flex-col items-stretch justify-center gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-center">
             <button
@@ -204,6 +209,9 @@ export default function UploadPage() {
     </UploadLayout>
   );
 }
+
+
+
 
 
 

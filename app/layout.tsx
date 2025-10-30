@@ -29,6 +29,8 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        {/* Stable placeholder to avoid hydration diff when Next injects MetadataOutlet */}
+        <div id="__meta_anchor" suppressHydrationWarning></div>
         <Providers>
           {children}
           <OverlaysRoot />
