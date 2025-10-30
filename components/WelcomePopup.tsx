@@ -77,8 +77,11 @@ export default function WelcomePopup({ onClose }: WelcomePopupProps) {
             </div>
             <h2 className="sr-only">YADDAI — AI Video Playground</h2>
             {/* Subtitle */}
-            <p className="mt-2 text-sm leading-relaxed text-violet-200/70">
+            <p className="hidden mt-2 text-sm leading-relaxed text-violet-200/70">
               Yaddai is a space for creators exploring the edge of art and technology. We use AI responsibly to craft new stories, new characters, and original worlds — always with respect for creativity, copyright, and the people behind great ideas.
+            </p>
+            <p className="mt-2 text-sm leading-relaxed text-violet-200/70">
+              Yaddai is a space for entertainment and AI creation. We share and use artificial intelligence responsibly to craft new stories, new characters — always with respect for creativity, copyright, and the people behind great ideas.
             </p>
 
             {/* Actions */}
