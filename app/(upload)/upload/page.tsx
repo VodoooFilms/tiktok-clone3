@@ -167,27 +167,40 @@ export default function UploadPage() {
 
   return (
     <UploadLayout>
-      <section className="grid grid-cols-1 gap-6 p-4 md:grid-cols-2">
-        <div className="order-2 md:order-1">
-          <div className="flex w-full justify-center">
-            <div className="relative max-w-[80vw] sm:max-w-[16rem] md:max-w-[18rem] lg:max-w-[22rem] w-full rounded-2xl border border-neutral-800 bg-gradient-to-b from-neutral-950 to-neutral-900 shadow-xl ring-1 ring-black/10 overflow-hidden">
-              {previewUrl ? (
-                <video ref={videoRef} src={previewUrl} className="aspect-[9/16] w-full object-cover rounded-xl" muted playsInline loop controls />
-              ) : (
-                <div className="aspect-[9/16] w-full grid place-items-center text-sm text-neutral-400">
-                  {setup.fromSetup && setup.animationUrl ? "Loaded from Profile Setup" : "Select a video to preview"}
-                </div>
-              )}
-            </div>
-          </div>
-          {submitting && (
-            <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-neutral-800">
-              <div className="h-full w-1/2 animate-pulse bg-emerald-600"></div>
-            </div>
-          )}
-          {error && <div className="mt-2 text-sm text-red-400">{error}</div>}
+      {/* Subtle blurred background accents for consistency */}
+      <section className="relative min-h-[70vh] p-4 md:p-6 flex items-center justify-center">
+        <div className="pointer-events-none absolute inset-0 -z-10">
+          <div className="absolute -top-24 -left-20 h-72 w-72 rounded-full bg-fuchsia-500/10 blur-3xl" />
+          <div className="absolute -bottom-24 -right-20 h-72 w-72 rounded-full bg-cyan-400/10 blur-3xl" />
         </div>
-        <form onSubmit={onSubmit} className="order-1 md:order-2 flex flex-col gap-3">
+
+        {/* Centered gradient bordered card */}
+        <div className="w-full max-w-4xl">
+          <div className="relative rounded-2xl p-[1px] bg-gradient-to-r from-cyan-400 via-fuchsia-500 to-violet-500 shadow-xl">
+            <div className="rounded-2xl bg-[#0a0a0a]/90 supports-[backdrop-filter]:bg-[#0a0a0a]/80 backdrop-blur px-4 sm:px-6 md:px-8 py-6 md:py-8">
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                <div className="order-2 md:order-1">
+                  <div className="flex w-full justify-center">
+                    <div className="relative max-w-[80vw] sm:max-w-[12rem] md:max-w-[13.5rem] lg:max-w-[15.5rem] w-full">
+                      <div className="rounded-xl p-[2px] bg-gradient-to-tr from-cyan-400 via-fuchsia-500 to-violet-500">
+                        {previewUrl ? (
+                          <video ref={videoRef} src={previewUrl} className="aspect-[9/16] w-full object-cover rounded-[10px] bg-black/40" muted playsInline loop controls />
+                        ) : (
+                          <div className="aspect-[9/16] w-full grid place-items-center rounded-[10px] bg-black/30 text-sm text-neutral-400">
+                            {setup.fromSetup && setup.animationUrl ? "Loaded from Profile Setup" : "Select a video to preview"}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  {submitting && (
+                    <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-neutral-800">
+                      <div className="h-full w-1/2 animate-pulse bg-emerald-600"></div>
+                    </div>
+                  )}
+                  {error && <div className="mt-2 text-sm text-red-400">{error}</div>}
+                </div>
+                <form onSubmit={onSubmit} className="order-1 md:order-2 flex flex-col gap-3">
           <p className="text-xs text-neutral-400">
             Post responsibly, with creativity and originality.
           </p>
@@ -232,7 +245,7 @@ export default function UploadPage() {
               onClick={() => setShowFx(true)}
               className="w-full sm:w-auto rounded-xl border border-emerald-700/40 bg-emerald-600/10 px-4 py-2 text-emerald-300 hover:bg-emerald-600/20 active:bg-emerald-600/25"
             >
-              Apply AI FX to this video
+              Add AI Sound
             </button>
             <button
               type="submit"
@@ -247,22 +260,30 @@ export default function UploadPage() {
 {log}
             </pre>
           )}
-        </form>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
       </section>
       {showFx && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4">
-          <div className="w-full max-w-sm rounded-2xl border border-neutral-800 bg-neutral-950 p-4 shadow-2xl">
-            <div className="mb-2 text-base font-semibold text-white">AI FX</div>
-            <p className="text-sm text-neutral-300">For Pro Users, subscribe</p>
-            <div className="mt-4 flex justify-end">
-              <button
-                type="button"
-                onClick={() => setShowFx(false)}
-                className="rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-sm text-white hover:bg-neutral-800"
-                aria-label="Close"
-              >
-                Close
-              </button>
+          <div className="w-full max-w-sm">
+            <div className="rounded-2xl p-[1px] bg-gradient-to-r from-cyan-400 via-fuchsia-500 to-violet-500 shadow-2xl">
+              <div className="rounded-2xl border border-neutral-800 bg-neutral-950 p-4">
+                <div className="mb-2 text-base font-semibold text-white">AI FX</div>
+                <p className="text-sm text-neutral-300">For Pro Users, subscribe</p>
+                <div className="mt-4 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setShowFx(false)}
+                    className="rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-sm text-white hover:bg-neutral-800"
+                    aria-label="Close"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>

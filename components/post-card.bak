@@ -1,0 +1,545 @@
+"use client";
+import type { Models } from "appwrite";
+import { storage, database, ID, Permission, Role, Query } from "@/libs/AppWriteClient";
+import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
+import { useUI } from "@/app/context/ui-context";
+import { useUser } from "@/app/context/user";
+
+type Props = { doc: Models.Document };
+
+export default function PostCard({ doc }: Props) {
+  const { user } = useUser();
+  const { openAuth } = useUI();
+  const bucketId = process.env.NEXT_PUBLIC_BUCKET_ID as string | undefined;
+  const dbId = process.env.NEXT_PUBLIC_DATABASE_ID as string | undefined;
+  const likeCol = process.env.NEXT_PUBLIC_COLLECTION_ID_LIKE as string | undefined;
+  const get = (keys: string[]) => keys.find((k) => k in (doc as any));
+
+  const videoUrlKey = get(["video_url", "videoUrl"]);
+  const videoIdKey = get(["video_id", "videoId", "file_id", "fileId"]);
+  const textKey = get(["text", "caption", "description"]) || "text";
+  const createdKey = get(["created_at", "createdAt", "$createdAt"]) || "$createdAt";
+
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [videoSrc, setVideoSrc] = useState<string>("");
+  const [likeCount, setLikeCount] = useState<number>(0);
+  const [likeDocId, setLikeDocId] = useState<string | null>(null);
+  const [loadingLikes, setLoadingLikes] = useState(false);
+  const [likeBusy, setLikeBusy] = useState(false);
+  const [likeError, setLikeError] = useState<string>("");
+
+  // Comments (feed)
+  const commentCol = process.env.NEXT_PUBLIC_COLLECTION_ID_COMMENT as string | undefined;
+  const commentLikeCol = process.env.NEXT_PUBLIC_COLLECTION_ID_COMMENT_LIKE as string | undefined;
+  const [commentsOpen, setCommentsOpen] = useState(false);
+  const [comments, setComments] = useState<Models.Document[]>([]);
+  const [commentCount, setCommentCount] = useState<number>(0);
+  const [commentText, setCommentText] = useState("");
+  const [postingComment, setPostingComment] = useState(false);
+  const [commentLikeCounts, setCommentLikeCounts] = useState<Record<string, number>>({});
+  const [commentLikeMine, setCommentLikeMine] = useState<Record<string, string | null>>({});
+  const [commentLikeBusy, setCommentLikeBusy] = useState<Record<string, boolean>>({});
+  const [shareBusy, setShareBusy] = useState(false);
+  const [sharedHint, setSharedHint] = useState<string>("");
+
+  // Detect Like schema (optional)
+  const [likeKeys, setLikeKeys] = useState<{ userKey: string; postKey: string; idKey: string; hasIdAttr: boolean }>(
+    { userKey: "user_id", postKey: "post_id", idKey: "id", hasIdAttr: true }
+  );
+  useEffect(() => {
+    let src = "";
+    if (videoUrlKey) {
+      src = String((doc as any)[videoUrlKey]);
+    } else if (videoIdKey && bucketId) {
+      try {
+        src = storage.getFileView(String(bucketId), String((doc as any)[videoIdKey])).toString();
+      } catch {}
+    }
+    setVideoSrc(src);
+  }, [bucketId, doc, storage]);
+
+  const shareUrl = typeof window !== "undefined" ? `${window.location.origin}/post/${(doc as any).$id}` : ``;
+  const doShare = async () => {
+    try {
+      setShareBusy(true);
+      if (navigator.share) {
+        await navigator.share({ url: shareUrl, title: "Check this video" });
+        setSharedHint("Shared");
+      } else if (navigator.clipboard) {
+        await navigator.clipboard.writeText(shareUrl);
+        setSharedHint("Link copied");
+      } else {
+        setSharedHint("Copy: " + shareUrl);
+      }
+    } catch {}
+    finally {
+      setShareBusy(false);
+      setTimeout(() => setSharedHint(""), 1500);
+    }
+  };
+
+  const text = String((doc as any)[textKey] ?? "");
+  const createdAtRaw = String((doc as any)[createdKey] ?? "");
+  const createdAt = createdAtRaw ? new Date(createdAtRaw).toLocaleString() : "";
+
+  // Fetch likes count and whether current user liked
+  const refreshLikes = async () => {
+    if (!dbId || !likeCol) return;
+    setLoadingLikes(true);
+    try {
+      const postId = String((doc as any).$id);
+      const res = await database.listDocuments(dbId, likeCol, [
+        Query.equal(likeKeys.postKey, postId),
+        Query.limit(1),
+      ] as any);
+      setLikeCount(res.total || 0);
+      if (user) {
+        const mine = await database.listDocuments(dbId, likeCol, [
+          Query.equal(likeKeys.postKey, postId),
+          Query.equal(likeKeys.userKey, user.$id),
+          Query.limit(1),
+        ] as any);
+        setLikeDocId(mine.documents[0]?.$id || null);
+      } else {
+        setLikeDocId(null);
+      }
+    } finally {
+      setLoadingLikes(false);
+    }
+  };
+
+  useEffect(() => {
+    refreshLikes();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [doc.$id, dbId, likeCol, user?.$id, likeKeys.postKey, likeKeys.userKey]);
+
+  // Try to detect Like collection attribute keys (requires APPWRITE_API_KEY on server)
+  useEffect(() => {
+    (async () => {
+      try {
+        if (!dbId || !likeCol) return;
+        const url = new URL(window.location.origin + "/api/admin/collection");
+        url.searchParams.set("db", String(dbId));
+        url.searchParams.set("col", String(likeCol));
+        const res = await fetch(url.toString(), { cache: "no-store" });
+        if (!res.ok) return; // skip if unauthorized
+        const json = await res.json();
+        const attrs: any[] = json?.data?.attributes ?? [];
+        const has = (name: string) => attrs.some((a: any) => a.key === name || a.$id === name);
+        const next = { ...likeKeys };
+        if (has("user_id")) next.userKey = "user_id";
+        else if (has("userid")) next.userKey = "userid";
+        else if (has("userId")) next.userKey = "userId";
+        if (has("post_id")) next.postKey = "post_id";
+        else if (has("postId")) next.postKey = "postId";
+        else if (has("post")) next.postKey = "post";
+        next.hasIdAttr = has("id");
+        setLikeKeys(next);
+      } catch {}
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dbId, likeCol]);
+
+  // Comment-like schema detection (optional)
+  const [commentLikeKeys, setCommentLikeKeys] = useState<{ userKey: string; commentKey: string; idKey: string; hasIdAttr: boolean }>(
+    { userKey: "user_id", commentKey: "comment_id", idKey: "id", hasIdAttr: true }
+  );
+  useEffect(() => {
+    (async () => {
+      try {
+        if (!dbId || !commentLikeCol) return;
+        const url = new URL(window.location.origin + "/api/admin/collection");
+        url.searchParams.set("db", String(dbId));
+        url.searchParams.set("col", String(commentLikeCol));
+        const res = await fetch(url.toString(), { cache: "no-store" });
+        if (!res.ok) return;
+        const json = await res.json();
+        const attrs: any[] = json?.data?.attributes ?? [];
+        const has = (name: string) => attrs.some((a: any) => a.key === name || a.$id === name);
+        const next = { ...commentLikeKeys };
+        if (has("user_id")) next.userKey = "user_id"; else if (has("userId")) next.userKey = "userId";
+        if (has("comment_id")) next.commentKey = "comment_id"; else if (has("commentId")) next.commentKey = "commentId";
+        next.hasIdAttr = has("id");
+        setCommentLikeKeys(next);
+      } catch {}
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dbId, commentLikeCol]);
+
+  // Comments count + list
+  const refreshCommentCount = async () => {
+    if (!dbId || !commentCol) return;
+    const postId = String((doc as any).$id);
+    try {
+      const res = await database.listDocuments(dbId, commentCol, [
+        Query.equal(likeKeys.postKey, postId),
+        Query.limit(1),
+      ] as any);
+      setCommentCount(res.total || 0);
+    } catch {}
+  };
+
+  const refreshComments = async () => {
+    if (!dbId || !commentCol) return;
+    const postId = String((doc as any).$id);
+    try {
+      const res = await database.listDocuments(dbId, commentCol, [
+        Query.equal(likeKeys.postKey, postId),
+        Query.orderDesc("created_at"),
+        Query.limit(10),
+      ] as any);
+      setComments(res.documents);
+      setCommentCount(res.total || res.documents.length || 0);
+      if (commentLikeCol) {
+        const counts: Record<string, number> = {};
+        const mine: Record<string, string | null> = {};
+        await Promise.all(res.documents.map(async (c) => {
+          const cid = String(c.$id);
+          try {
+            const total = await database.listDocuments(dbId, commentLikeCol, [
+              Query.equal(commentLikeKeys.commentKey, cid),
+              Query.limit(1),
+            ] as any);
+            counts[cid] = total.total || 0;
+            if (user) {
+              const my = await database.listDocuments(dbId, commentLikeCol, [
+                Query.equal(commentLikeKeys.commentKey, cid),
+                Query.equal(commentLikeKeys.userKey, user.$id),
+                Query.limit(1),
+              ] as any);
+              mine[cid] = my.documents[0]?.$id || null;
+            } else {
+              mine[cid] = null;
+            }
+          } catch {}
+        }));
+        setCommentLikeCounts(counts);
+        setCommentLikeMine(mine);
+      }
+    } catch {}
+  };
+
+  useEffect(() => {
+    refreshCommentCount();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [doc.$id, dbId, commentCol, likeKeys.postKey]);
+
+  const toggleComments = async () => {
+    const next = !commentsOpen;
+    setCommentsOpen(next);
+    if (next && comments.length === 0) await refreshComments();
+  };
+
+  const submitComment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!dbId || !commentCol) return;
+    if (!user) { openAuth(); return; }
+    const text = commentText.trim();
+    if (!text) return;
+    setPostingComment(true);
+    try {
+      const payload: any = {
+        user_id: user.$id,
+        [likeKeys.postKey]: String((doc as any).$id),
+        text,
+        created_at: new Date().toISOString(),
+      };
+      const perms = [
+        Permission.read(Role.any()),
+        Permission.update(Role.user(user.$id)),
+        Permission.delete(Role.user(user.$id)),
+      ];
+      const created = await database.createDocument(dbId, commentCol, ID.unique(), payload, perms as any);
+      setComments((prev) => [created as any, ...prev]);
+      setCommentText("");
+      setCommentCount((c) => c + 1);
+      setCommentLikeCounts((prev) => ({ [created.$id]: 0, ...prev }));
+      setCommentLikeMine((prev) => ({ [created.$id]: null, ...prev }));
+    } finally {
+      setPostingComment(false);
+    }
+  };
+
+  const toggleCommentLike = async (commentId: string) => {
+    if (!dbId || !commentLikeCol) return;
+    if (!user) { openAuth(); return; }
+    setCommentLikeBusy((prev) => ({ ...prev, [commentId]: true }));
+    const mineId = commentLikeMine[commentId];
+    if (mineId) {
+      const prevId = mineId;
+      setCommentLikeMine((prev) => ({ ...prev, [commentId]: null }));
+      setCommentLikeCounts((prev) => ({ ...prev, [commentId]: Math.max(0, (prev[commentId] || 1) - 1) }));
+      try {
+        await database.deleteDocument(dbId, commentLikeCol, prevId);
+      } catch {
+        setCommentLikeMine((prev) => ({ ...prev, [commentId]: prevId }));
+        setCommentLikeCounts((prev) => ({ ...prev, [commentId]: (prev[commentId] || 0) + 1 }));
+      } finally {
+        setCommentLikeBusy((prev) => ({ ...prev, [commentId]: false }));
+      }
+      return;
+    }
+    const perms = [
+      Permission.read(Role.any()),
+      Permission.update(Role.user(user.$id)),
+      Permission.delete(Role.user(user.$id)),
+    ];
+    const optimisticId = "optimistic:" + ID.unique();
+    setCommentLikeMine((prev) => ({ ...prev, [commentId]: optimisticId }));
+    setCommentLikeCounts((prev) => ({ ...prev, [commentId]: (prev[commentId] || 0) + 1 }));
+    try {
+      const payload: any = {
+        [commentLikeKeys.userKey]: user.$id,
+        [commentLikeKeys.commentKey]: commentId,
+      };
+      if (commentLikeKeys.hasIdAttr) payload[commentLikeKeys.idKey] = `${user.$id}:${commentId}`.slice(0, 30);
+      try {
+        const created = await database.createDocument(dbId, commentLikeCol, ID.unique(), payload, perms as any);
+        setCommentLikeMine((prev) => ({ ...prev, [commentId]: created.$id }));
+      } catch (eWithMap: any) {
+        const msg = String(eWithMap?.message || eWithMap || "");
+        if (/Unknown attribute\s+"id"/i.test(msg)) {
+          delete payload[commentLikeKeys.idKey];
+          const created = await database.createDocument(dbId, commentLikeCol, ID.unique(), payload, perms as any);
+          setCommentLikeMine((prev) => ({ ...prev, [commentId]: created.$id }));
+        } else {
+          throw eWithMap;
+        }
+      }
+    } catch {
+      setCommentLikeMine((prev) => ({ ...prev, [commentId]: null }));
+      setCommentLikeCounts((prev) => ({ ...prev, [commentId]: Math.max(0, (prev[commentId] || 1) - 1) }));
+    } finally {
+      setCommentLikeBusy((prev) => ({ ...prev, [commentId]: false }));
+    }
+  };
+  const toggleLike = async () => {
+    if (!dbId || !likeCol || likeBusy) return;
+    if (!user) { openAuth(); return; }
+    setLikeBusy(true);
+    setLikeError("");
+    const postId = String((doc as any).$id);
+    // Optimistic update
+    if (likeDocId) {
+      const prevId = likeDocId;
+      setLikeDocId(null);
+      setLikeCount((c) => Math.max(0, c - 1));
+      try {
+        await database.deleteDocument(dbId, likeCol, prevId);
+      } catch (e) {
+        // rollback on error
+        setLikeDocId(prevId);
+        setLikeCount((c) => c + 1);
+        console.error("Unlike failed", e);
+      }
+    } else {
+      const optimisticId = "optimistic:" + ID.unique();
+      setLikeDocId(optimisticId);
+      setLikeCount((c) => c + 1);
+      try {
+        const perms = [
+          Permission.read(Role.any()),
+          Permission.update(Role.user(user.$id)),
+          Permission.delete(Role.user(user.$id)),
+        ];
+        const payload: any = {
+          [likeKeys.userKey]: user.$id,
+          [likeKeys.postKey]: postId,
+        };
+        if (likeKeys.hasIdAttr) (payload as any)[likeKeys.idKey] = `${user.$id}:${postId}`.slice(0, 30);
+        try {
+          const created = await database.createDocument(dbId, likeCol, ID.unique(), payload, perms as any);
+          setLikeDocId(created.$id);
+        } catch (eWithMap: any) {
+          const msg = String(eWithMap?.message || eWithMap || "");
+          // Unknown id attribute → drop 'id' and retry once
+          if (/Unknown attribute\s+"id"/i.test(msg)) {
+            delete (payload as any)[likeKeys.idKey];
+            const created = await database.createDocument(dbId, likeCol, ID.unique(), payload, perms as any);
+            setLikeDocId(created.$id);
+          } else {
+            throw eWithMap;
+          }
+        }
+      } catch (e2: any) {
+        // rollback on error
+        setLikeDocId(null);
+        setLikeCount((c) => Math.max(0, c - 1));
+        const msg = String(e2?.message || e2 || "");
+        setLikeError(msg);
+        console.error("Like failed", e2);
+      } finally {
+        setLikeBusy(false);
+      }
+    }
+  };
+
+  // Play/pause on visibility
+  useEffect(() => {
+    const el = videoRef.current;
+    if (!el) return;
+    let fetched = false;
+    const obs = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          const v = entry.target as HTMLVideoElement;
+          if (entry.isIntersecting && entry.intersectionRatio > 0.8) {
+            try {
+              // Pause other videos first (single-video guard)
+              document.querySelectorAll("video").forEach((other) => {
+                if (other !== v) {
+                  try { (other as HTMLVideoElement).pause(); } catch {}
+                }
+              });
+              v.play().catch(() => {});
+            } catch {}
+            if (!fetched) {
+              fetched = true;
+              refreshLikes();
+            }
+          } else {
+            try { v.pause(); } catch {}
+          }
+        });
+      },
+      { threshold: [0, 0.5, 0.8, 1] }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [videoSrc]);
+
+  return (
+    <article className="w-full border-b border-neutral-800 snap-start">
+      <div className="mx-auto flex w-full max-w-[680px] md:max-w-[476px] flex-col gap-2 px-0 md:px-4">
+        <Link href={`/post/${doc.$id}`} className="block">
+          <div className="relative w-full bg-black md:rounded-lg overflow-hidden">
+            {videoSrc ? (
+              <video
+                ref={videoRef}
+                src={videoSrc}
+                className="h-[calc(100vh-56px)] w-full object-cover md:h-[504px]"
+                muted
+                playsInline
+                loop
+                autoPlay
+                controls={false}
+                preload="metadata"
+                poster="/images/placeholder-user.jpg"
+              />
+            ) : (
+              <div className="h-[calc(100vh-56px)] w-full bg-neutral-900 md:h-[504px]" />
+            )}
+          </div>
+        </Link>
+        <div className="mx-4 mb-4 flex items-start gap-3 md:mx-0">
+          <div className="h-10 w-10 shrink-0 rounded-full bg-neutral-800" />
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <div className="text-sm font-medium">
+                {(doc as any).user_id || (doc as any).userid || "user"}
+              </div>
+              {createdAt && <div className="text-xs opacity-60">{createdAt}</div>}
+            </div>
+            {(text || (doc as any).caption) && (
+              <p className="mt-1 text-sm text-neutral-200">
+                {text || (doc as any).caption}
+              </p>
+            )}
+            {commentsOpen && (
+              <div className="mt-3">
+                <form onSubmit={submitComment} className="mb-2 flex gap-2">
+                  <input
+                    value={commentText}
+                    onChange={(e) => setCommentText(e.target.value)}
+                    placeholder="Add a comment"
+                    className="flex-1 rounded border border-neutral-800 bg-black px-3 py-1.5 text-sm"
+                  />
+                  <button
+                    type="submit"
+                    disabled={postingComment || !commentText.trim()}
+                    className="rounded bg-emerald-600 px-3 py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {postingComment ? "Posting…" : "Post"}
+                  </button>
+                </form>
+                <div className="flex flex-col divide-y divide-neutral-800">
+                  {comments.map((c) => (
+                    <div key={c.$id} className="py-2">
+                      <div className="flex items-center gap-2 text-xs opacity-60">
+                        <span>{(c as any).user_id || "user"}</span>
+                        <span>•</span>
+                        <span>{new Date(String((c as any).created_at || c.$createdAt)).toLocaleString()}</span>
+                      </div>
+                      <div className="mt-1 flex items-start justify-between gap-3">
+                        <div className="text-sm flex-1">{(c as any).text}</div>
+                        {commentLikeCol && (
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => toggleCommentLike(String(c.$id))}
+                              disabled={!!commentLikeBusy[String(c.$id)]}
+                              className={`rounded-full border px-2 py-0.5 text-xs ${commentLikeMine[String(c.$id)] ? "bg-rose-600 border-rose-600 text-white" : "border-neutral-700 hover:bg-neutral-900"}`}
+                              title={!user ? "Log in to like" : commentLikeMine[String(c.$id)] ? "Unlike" : "Like"}
+                            >
+                              ♥
+                            </button>
+                            <span className="text-xs opacity-80 min-w-[2ch] text-center">{commentLikeCounts[String(c.$id)] || 0}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  {comments.length === 0 && (
+                    <div className="py-4 text-center text-sm opacity-60">No comments yet</div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="ml-auto flex shrink-0 flex-col items-center gap-2">
+            <button
+              onClick={toggleLike}
+              className={`grid h-12 w-12 place-items-center rounded-full border transition-colors ${likeDocId ? "bg-rose-600 border-rose-600 text-white" : "border-neutral-700 hover:bg-neutral-900 text-neutral-200"} ${likeBusy ? "opacity-60 cursor-not-allowed" : ""}`}
+              title={user ? (likeDocId ? "Unlike" : "Like") : "Log in to like"}
+              disabled={likeBusy}
+            >
+              <span className="text-lg">{likeDocId ? "❤" : "♡"}</span>
+            </button>
+            <div className="text-xs opacity-80 min-w-[2ch] text-center">
+              {loadingLikes ? "…" : likeCount}
+            </div>
+            {commentCol && (
+              <>
+                <button
+                  onClick={toggleComments}
+                  className="grid h-12 w-12 place-items-center rounded-full border border-neutral-700 hover:bg-neutral-900 text-neutral-200"
+                  title="Comments"
+                >
+                  <span className="text-lg">💬</span>
+                </button>
+                <div className="text-xs opacity-80 min-w-[2ch] text-center">{commentCount}</div>
+              </>
+            )}
+            <button
+              onClick={doShare}
+              className="grid h-12 w-12 place-items-center rounded-full border border-neutral-700 hover:bg-neutral-900 text-neutral-200"
+              title="Share"
+              disabled={shareBusy}
+            >
+              <span className="text-lg">↗</span>
+            </button>
+            {sharedHint && (
+              <div className="text-[10px] opacity-80 text-center max-w-[6rem]">{sharedHint}</div>
+            )}
+            {likeError && (
+              <div className="max-w-[140px] text-center text-[10px] text-red-400">{likeError}</div>
+            )}
+          </div>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+
+

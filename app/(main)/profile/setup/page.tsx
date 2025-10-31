@@ -2,13 +2,16 @@
 import MainLayout from "@/app/layouts/MainLayout";
 import { useUser } from "@/app/context/user";
 import { useProfileSetup } from "@/app/context/profile-setup";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useUpload } from "@/lib/hooks/useUpload";
+import { database } from "@/libs/AppWriteClient";
 
 export default function ProfileSetupPage() {
   const { user, loading } = useUser();
   const setup = useProfileSetup();
   const router = useRouter();
+  const { upload } = useUpload();
 
   // Camera refs for recording (step 2)
   const videoEl = useRef<HTMLVideoElement | null>(null);
@@ -21,6 +24,8 @@ export default function ProfileSetupPage() {
   useEffect(() => {
     if (!loading && !user) return; // gated UI below
   }, [user, loading]);
+
+  // Suspense-wrapped component will handle reading search params
 
   const stepTitle = useMemo(() => {
     if (setup.step === 1) return "Create AI Profile Image";
@@ -67,6 +72,78 @@ export default function ProfileSetupPage() {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     const url = canvas.toDataURL("image/png");
     setup.pushImage({ id: attempt, url });
+  }
+
+  // Detect profile schema keys to update avatar fields safely
+  async function detectProfileAvatarKeys() {
+    const databaseId = process.env.NEXT_PUBLIC_DATABASE_ID as string | undefined;
+    const colProfile = process.env.NEXT_PUBLIC_COLLECTION_ID_PROFILE as string | undefined;
+    if (!databaseId || !colProfile) return null as null | {
+      avatarUrlKey: string | null;
+      avatarObjKey: string | null;
+      avatarStrKey: string | null;
+    };
+    try {
+      const url = new URL(window.location.origin + "/api/admin/collection");
+      url.searchParams.set("db", String(databaseId));
+      url.searchParams.set("col", String(colProfile));
+      const res = await fetch(url.toString(), { cache: "no-store" });
+      if (!res.ok) return null;
+      const json = await res.json();
+      const attrs: any[] = json?.data?.attributes ?? [];
+      const has = (n: string) => attrs.some((a: any) => a.key === n || a.$id === n);
+      return {
+        avatarUrlKey: has("avatar_url") ? "avatar_url" : has("avatarUrl") ? "avatarUrl" : null,
+        avatarObjKey: has("avatar_object_name") ? "avatar_object_name" : has("avatarObjectName") ? "avatarObjectName" : null,
+        avatarStrKey: has("avatar") ? "avatar" : null,
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  // Save selected or uploaded image as user's profile avatar, then go to profile
+  async function saveCurrentImageAsAvatar() {
+    try {
+      if (!user) {
+        router.push("/auth/callback");
+        return;
+      }
+      const imgUrl = (setup.selectedImage?.url || setup.selfieUrl) as string | undefined;
+      if (!imgUrl) return;
+      // Ensure profile exists
+      try { await fetch("/api/profile/ensure", { method: "POST", cache: "no-store" }); } catch {}
+      // Convert URL/dataURL/objectURL to Blob
+      const resp = await fetch(imgUrl);
+      const blob = await resp.blob();
+      const mime = blob.type || "image/png";
+      const ext = mime.includes("png") ? "png" : mime.includes("webp") ? "webp" : "jpg";
+      const file = new File([blob], `avatar.${ext}` , { type: mime });
+      const up = await upload(file, { prefix: `avatars/${user.$id}`, mimeWhitelist: ["image/png","image/jpeg","image/webp"] });
+
+      const databaseId = process.env.NEXT_PUBLIC_DATABASE_ID as string | undefined;
+      const colProfile = process.env.NEXT_PUBLIC_COLLECTION_ID_PROFILE as string | undefined;
+      if (!databaseId || !colProfile) {
+        alert("Missing database/collection env for profile");
+        return;
+      }
+      const keys = await detectProfileAvatarKeys();
+      const payload: any = {};
+      if (keys?.avatarUrlKey) payload[keys.avatarUrlKey] = up.publicUrl;
+      if (keys?.avatarObjKey) payload[keys.avatarObjKey] = up.objectName;
+      if (!keys?.avatarUrlKey && keys?.avatarStrKey) payload[keys.avatarStrKey] = up.publicUrl;
+      // Fallback: if no keys detected, write to a generic 'avatar' if the collection allows it (may fail silently)
+      if (!keys) payload["avatar"] = up.publicUrl;
+      try {
+        await database.updateDocument(String(databaseId), String(colProfile), String(user.$id), payload);
+      } catch (e) {
+        // swallow; overlay flow can handle further edits
+      }
+      try { window.dispatchEvent(new CustomEvent('profile:saved')); } catch {}
+      router.replace(`/profile/${user.$id}`);
+    } catch (e: any) {
+      alert(String(e?.message || e || "Failed to save profile picture"));
+    }
   }
 
   async function startRecording() {
@@ -138,6 +215,10 @@ export default function ProfileSetupPage() {
 
   return (
     <MainLayout>
+      {/* Read query params in a Suspense child to avoid CSR bailout issues */}
+      <Suspense>
+        <PreloadSelfieFromQuery />
+      </Suspense>
       {/* Subtle blurred background accents */}
       <section className="relative min-h-[70vh] p-4 md:p-6 flex items-center justify-center">
         <div className="pointer-events-none absolute inset-0 -z-10">
@@ -215,16 +296,11 @@ export default function ProfileSetupPage() {
                       </button>
                       <button
                         type="button"
-                        disabled={!setup.selfieUrl}
-                        onClick={() => {
-                          if (setup.selfieUrl) {
-                            setup.selectImage({ id: "raw", url: setup.selfieUrl });
-                          }
-                          setup.setStep(2);
-                        }}
+                        disabled={!setup.selfieUrl && !setup.selectedImage}
+                        onClick={saveCurrentImageAsAvatar}
                         className="rounded-xl border border-neutral-800 bg-neutral-950 px-3 py-2 text-white hover:bg-neutral-900 disabled:cursor-not-allowed disabled:opacity-50"
                       >
-                        Skip AI, use my photo
+                        Use this photo as profile picture
                       </button>
                     </div>
                     <div className="mt-2 flex gap-2 overflow-x-auto">
@@ -259,7 +335,7 @@ export default function ProfileSetupPage() {
                 <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                   <div className="flex items-center justify-center">
                     <div className="relative w-full max-w-sm">
-                      <div className="absolute -top-10 left-0 flex items-center gap-2 text-sm text-neutral-400">
+                    <div className="absolute -top-12 left-2 flex items-center gap-2 text-sm text-neutral-400">
                         {setup.selectedImage && (
                           <img src={setup.selectedImage.url} alt="avatar" className="h-8 w-8 rounded-full object-cover" />
                         )}
@@ -323,6 +399,17 @@ export default function ProfileSetupPage() {
                       </button>
                       <button
                         type="button"
+                        onClick={() => {
+                          setup.setSelfieVideoUrl(undefined);
+                          setCountdown(null);
+                          setup.setStep(3);
+                        }}
+                        className="rounded-xl border border-neutral-800 bg-neutral-950 px-3 py-2 text-white hover:bg-neutral-900"
+                      >
+                        Skip, use image only
+                      </button>
+                      <button
+                        type="button"
                         disabled={!setup.selfieVideoUrl}
                         onClick={() => setup.setStep(3)}
                         className="rounded-2xl bg-emerald-600 px-5 py-2 text-white disabled:cursor-not-allowed disabled:opacity-50"
@@ -346,14 +433,24 @@ export default function ProfileSetupPage() {
                         <video src={setup.selfieVideoUrl} className="h-24 w-40 rounded-lg border border-neutral-800 object-cover" muted playsInline />
                       )}
                     </div>
-                    <button
-                      type="button"
-                      onClick={generateAnimation}
-                      disabled={generating}
-                      className="mt-2 rounded-2xl bg-emerald-600 px-6 py-2 text-white disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {generating ? "Generating…" : "Generate Animation 🍌"}
-                    </button>
+                    {setup.selfieVideoUrl ? (
+                      <button
+                        type="button"
+                        onClick={generateAnimation}
+                        disabled={generating}
+                        className="mt-2 rounded-2xl bg-emerald-600 px-6 py-2 text-white disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {generating ? "Generating…" : "Generate Animation 🍌"}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={saveCurrentImageAsAvatar}
+                        className="mt-2 rounded-2xl border border-neutral-700 bg-neutral-950 px-6 py-2 text-white hover:bg-neutral-900"
+                      >
+                        Save Profile Picture
+                      </button>
+                    )}
                     <div className="text-sm text-neutral-400 flex items-center gap-2">
                       <span>Combining your style and motion…</span>
                       <span className={`inline-block ${generating ? "animate-spin" : ""}`} role="img" aria-label="banana">🍌</span>
@@ -377,3 +474,18 @@ export default function ProfileSetupPage() {
   );
 }
 
+// Small helper to read ?src= and preload the selfie/selection
+function PreloadSelfieFromQuery() {
+  const setup = useProfileSetup();
+  const search = (require("next/navigation") as typeof import("next/navigation")).useSearchParams();
+  useEffect(() => {
+    const src = search?.get("src");
+    if (!src) return;
+    if (!setup.selfieUrl && !setup.selectedImage) {
+      setup.setSelfieUrl(src);
+      setup.selectImage({ id: "raw", url: src });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search]);
+  return null;
+}

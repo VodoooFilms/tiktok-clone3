@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import type { Models } from "appwrite";
 import { database, storage, Query, ID, Permission, Role } from "@/libs/AppWriteClient";
+import Link from "next/link";
 
 type Doc = Models.Document;
 
@@ -32,15 +33,43 @@ export default function ProfilePage() {
   // Load profile doc (name, bio, avatar, banner)
   const { profile, refresh: refreshProfile } = useProfile(userId);
   const isSelf = user?.$id === String(userId);
-  const hasAvatar = useMemo(() => {
+  const [avatarResolvedUrl, setAvatarResolvedUrl] = useState<string>("");
+  const hasAvatar = useMemo(() => Boolean(avatarResolvedUrl), [avatarResolvedUrl]);
+
+  // Resolve avatar URL from known fields or object name (GCS)
+  useEffect(() => {
     const any: any = profile || {};
-    const avatarUrlCandidate =
-      any.avatar_url ||
-      any.avatarUrl ||
-      (typeof any.avatar === "string" && /^https?:\/\//i.test(any.avatar) ? any.avatar : null);
-    if (avatarUrlCandidate) return true;
-    const legacyId = any.avatar_file_id || any.avatarId || any.avatar_fileId || any.avatar;
-    return Boolean(legacyId);
+    const direct = any.avatar_url || any.avatarUrl || (typeof any.avatar === "string" && /^https?:\/\//i.test(any.avatar) ? any.avatar : null);
+    if (direct) {
+      setAvatarResolvedUrl(String(direct));
+      return;
+    }
+    const objName = any.avatar_object_name || any.avatarObjectName || null;
+    if (objName) {
+      (async () => {
+        try {
+          const u = new URL(window.location.origin + "/api/gcs/public-url");
+          u.searchParams.set("object", String(objName));
+          const res = await fetch(u.toString(), { cache: "no-store" });
+          const j = await res.json().catch(() => ({}));
+          if (j?.ok && j?.url) setAvatarResolvedUrl(String(j.url));
+        } catch {}
+      })();
+      return;
+    }
+    // Legacy: Appwrite storage file id fields
+    const bucket = process.env.NEXT_PUBLIC_BUCKET_ID as string | undefined;
+    const legacyId = any.avatar_file_id || any.avatarId || any.avatar_fileId || null;
+    if (legacyId && bucket) {
+      try {
+        const url = storage.getFileView(String(bucket), String(legacyId)).toString();
+        if (url) {
+          setAvatarResolvedUrl(url);
+          return;
+        }
+      } catch {}
+    }
+    setAvatarResolvedUrl("");
   }, [profile]);
 
   const fetchPosts = async () => {
@@ -186,25 +215,9 @@ export default function ProfilePage() {
           {/* Avatar with gradient ring */}
           <div className="absolute -bottom-10 left-4 rounded-full p-[3px] bg-gradient-to-tr from-cyan-400 via-fuchsia-500 to-violet-500">
             <div className="h-20 w-20 overflow-hidden rounded-full bg-neutral-800">
-            {(() => {
-              const any: any = profile || {};
-              const urlCandidate =
-                any.avatar_url ||
-                any.avatarUrl ||
-                (typeof any.avatar === "string" && /^https?:\/\//i.test(any.avatar) ? any.avatar : null);
-              if (urlCandidate) {
-                return <img src={String(urlCandidate)} alt="avatar" className="h-full w-full object-cover" />;
-              }
-              const bucket = process.env.NEXT_PUBLIC_BUCKET_ID as string | undefined;
-              const legacyId = any.avatar_file_id || any.avatarId || any.avatar_fileId || any.avatar;
-              if (!legacyId || !bucket) return null;
-              try {
-                const url = storage.getFileView(String(bucket), String(legacyId)).toString();
-                return url ? <img src={url} alt="avatar" className="h-full w-full object-cover" /> : null;
-              } catch {
-                return null;
-              }
-            })()}
+              {avatarResolvedUrl ? (
+                <img src={avatarResolvedUrl} alt="avatar" className="h-full w-full object-cover" />
+              ) : null}
             </div>
           </div>
         </div>
@@ -224,9 +237,18 @@ export default function ProfilePage() {
                 <span><strong className="text-white">{followCounts.following}</strong> following</span>
               </div>
             </div>
-            <div className="mt-3 flex gap-2">
+            <div className="mt-3 flex items-center gap-2">
               {user?.$id === String(userId) ? (
-                <ProfileActions />
+                <>
+                  <ProfileActions />
+                  <Link
+                    href={`/profile/setup${avatarResolvedUrl ? `?src=${encodeURIComponent(avatarResolvedUrl)}` : ""}`}
+                    className="inline-flex h-9 items-center rounded-lg border border-white/20 px-4 text-sm text-white/90 hover:border-white/40 hover:text-white"
+                    title="Setup avatar"
+                  >
+                    Setup avatar
+                  </Link>
+                </>
               ) : (
                 <button
                   onClick={toggleFollow}

@@ -261,49 +261,55 @@ export default function EditProfileOverlay() {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={closeEditProfile}>
-      <div className="w-full max-w-lg rounded-xl bg-neutral-950 text-white p-0 shadow-xl ring-1 ring-neutral-800 overflow-hidden" onClick={(e) => e.stopPropagation()}>
-        {/* Banner preview */}
-        <div className="relative h-32 w-full bg-neutral-900">
-          {bannerPreview && <img src={bannerPreview} alt="banner" className="h-full w-full object-cover" />}
-          {/* Avatar over banner */}
-          <div className="absolute -bottom-8 left-4 z-10 h-20 w-20 overflow-hidden rounded-full border-2 border-neutral-900 bg-neutral-800">
-            {avatarPreview && <img src={avatarPreview} alt="avatar" className="h-full w-full object-cover" />}
-          </div>
-          <label className="absolute right-2 bottom-2 cursor-pointer rounded bg-white/10 px-2 py-1 text-xs text-white hover:bg-white/20">
-            Change banner
-            <input type="file" accept="image/*" className="hidden" onChange={onFile(setBannerFile, setBannerPreview)} />
-          </label>
-        </div>
-        <div className="p-6 pt-12">
-          {/* Change avatar action */}
-          <div className="mb-3 pl-24">
-            <label className="cursor-pointer rounded border border-neutral-700 px-2 py-1 text-xs hover:bg-white/10">
-              Change photo
-              <input type="file" accept="image/*" className="hidden" onChange={onFile(setAvatarFile, setAvatarPreview)} />
-            </label>
-          </div>
-          <form className="flex flex-col gap-3" onSubmit={onSubmit}>
-            <div className="grid grid-cols-2 gap-3">
-              <label className="text-sm">
-                First name
-                <input className="mt-1 w-full rounded border border-neutral-700 bg-neutral-900 px-3 py-2" placeholder="First name" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
-              </label>
-              <label className="text-sm">
-                Last name
-                <input className="mt-1 w-full rounded border border-neutral-700 bg-neutral-900 px-3 py-2" placeholder="Last name" value={lastName} onChange={(e) => setLastName(e.target.value)} />
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4" onClick={closeEditProfile}>
+      <div className="w-full max-w-lg" onClick={(e) => e.stopPropagation()}>
+        <div className="rounded-2xl p-[1px] bg-gradient-to-r from-cyan-400 via-fuchsia-500 to-violet-500 shadow-2xl">
+          <div className="rounded-2xl bg-[#0a0a0a]/90 supports-[backdrop-filter]:bg-[#0a0a0a]/80 text-white overflow-hidden">
+            {/* Banner preview */}
+            <div className="relative h-36 w-full bg-neutral-900">
+              {bannerPreview && <img src={bannerPreview} alt="banner" className="h-full w-full object-cover" />}
+              {/* Avatar over banner with gradient ring */}
+              <div className="absolute -bottom-8 left-4 z-10 rounded-full p-[3px] bg-gradient-to-tr from-cyan-400 via-fuchsia-500 to-violet-500">
+                <div className="h-20 w-20 overflow-hidden rounded-full bg-neutral-800">
+                  {avatarPreview && <img src={avatarPreview} alt="avatar" className="h-full w-full object-cover" />}
+                </div>
+              </div>
+              <label className="absolute right-2 bottom-2 cursor-pointer rounded-lg border border-white/20 bg-white/10 px-2 py-1 text-xs text-white hover:bg-white/20">
+                Change banner
+                <input type="file" accept="image/*" className="hidden" onChange={onFile(setBannerFile, setBannerPreview)} />
               </label>
             </div>
-            <label className="text-sm">
-              Bio
-              <textarea className="mt-1 w-full rounded border border-neutral-700 bg-neutral-900 px-3 py-2" placeholder="Your bio" rows={3} value={bio} onChange={(e) => setBio(e.target.value)} />
-            </label>
-            {error && <div className="text-sm text-red-400">{error}</div>}
-            <div className="mt-2 flex justify-end gap-2">
-              <button type="button" className="rounded border border-neutral-700 px-3 py-2 hover:bg-white/10" onClick={closeEditProfile} disabled={busy}>Cancel</button>
-              <button type="submit" className="rounded bg-emerald-600 px-3 py-2 text-white hover:bg-emerald-500 disabled:opacity-60" disabled={busy}>{busy ? "Saving..." : "Save"}</button>
+            <div className="p-6 pt-12">
+              {/* Change avatar action */}
+              <div className="mb-3 pl-24">
+                <label className="cursor-pointer rounded-lg border border-neutral-700 px-2 py-1 text-xs hover:bg-white/10">
+                  Change photo
+                  <input type="file" accept="image/*" className="hidden" onChange={onFile(setAvatarFile, setAvatarPreview)} />
+                </label>
+              </div>
+              <form className="flex flex-col gap-3" onSubmit={onSubmit}>
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="text-sm">
+                    First name
+                    <input className="mt-1 w-full rounded-xl border border-neutral-700 bg-neutral-900 px-3 py-2" placeholder="First name" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
+                  </label>
+                  <label className="text-sm">
+                    Last name
+                    <input className="mt-1 w-full rounded-xl border border-neutral-700 bg-neutral-900 px-3 py-2" placeholder="Last name" value={lastName} onChange={(e) => setLastName(e.target.value)} />
+                  </label>
+                </div>
+                <label className="text-sm">
+                  Bio
+                  <textarea className="mt-1 w-full rounded-xl border border-neutral-700 bg-neutral-900 px-3 py-2" placeholder="Your bio" rows={3} value={bio} onChange={(e) => setBio(e.target.value)} />
+                </label>
+                {error && <div className="text-sm text-red-400">{error}</div>}
+                <div className="mt-2 flex justify-end gap-2">
+                  <button type="button" className="rounded-lg border border-neutral-700 px-3 py-2 hover:bg-white/10" onClick={closeEditProfile} disabled={busy}>Cancel</button>
+                  <button type="submit" className="rounded-2xl bg-emerald-600 px-4 py-2 text-white hover:bg-emerald-500 disabled:opacity-60" disabled={busy}>{busy ? "Saving..." : "Save"}</button>
+                </div>
+              </form>
             </div>
-          </form>
+          </div>
         </div>
       </div>
     </div>
