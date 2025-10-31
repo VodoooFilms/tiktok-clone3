@@ -93,7 +93,7 @@ export default function WelcomePopup({ onClose }: WelcomePopupProps) {
                   className="rounded-lg bg-transparent px-4 py-2 text-sm text-white/90 hover:text-white transition-shadow duration-200 hover:shadow-[0_0_24px_rgba(168,85,247,0.35)]"
                   onClick={onClose}
                 >
-                  Enter Yaddai
+                  Enter the Beta
                 </button>
               </div>
 
@@ -108,13 +108,13 @@ export default function WelcomePopup({ onClose }: WelcomePopupProps) {
               </button>
             </div>
 
-            {/* Continue as guest */}
+            {/* Enter the Beta */}
             <button
               type="button"
               className="mt-3 text-xs text-neutral-400 hover:underline"
               onClick={onClose}
             >
-              or continue as guest
+              Enter the Beta
             </button>
 
             {/* Footer */}

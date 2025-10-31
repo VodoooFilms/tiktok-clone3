@@ -234,7 +234,19 @@ export default function UploadPage() {
               onClick={() => {
                 setText("");
                 setFile(null);
-                try { if (videoRef.current) videoRef.current.load(); } catch {}
+                // Reset any preloaded media and stop auto-preload from Profile Setup
+                try {
+                  if (videoRef.current) {
+                    videoRef.current.pause();
+                    videoRef.current.removeAttribute("src");
+                    videoRef.current.load();
+                  }
+                } catch {}
+                try {
+                  // Prevent the effect from re-importing the video after discard
+                  setup.setFromSetup(false);
+                  setup.setAnimationUrl(undefined);
+                } catch {}
               }}
               className="w-full sm:w-auto rounded-xl border border-neutral-800 bg-neutral-950 px-4 py-2 text-white hover:bg-neutral-900 active:bg-neutral-900/80"
             >

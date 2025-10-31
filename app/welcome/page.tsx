@@ -43,7 +43,7 @@ export default function WelcomePage() {
                   href="/"
                   className="rounded-lg bg-transparent px-4 py-2 text-sm text-white/90 hover:text-white transition-shadow duration-200 hover:shadow-[0_0_24px_rgba(168,85,247,0.35)]"
                 >
-                  Enter Yaddai
+                  Enter the Beta
                 </Link>
               </div>
             </div>
@@ -53,4 +53,3 @@ export default function WelcomePage() {
     </main>
   );
 }
-

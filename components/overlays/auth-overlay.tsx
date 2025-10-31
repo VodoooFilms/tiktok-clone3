@@ -63,7 +63,7 @@ export default function AuthOverlay() {
                 }}
                 disabled={loading}
               >
-                Continue as guest
+                Enter the Beta
               </button>
               <button className="rounded border border-neutral-700 hover:bg-white/10 px-3 py-2" onClick={loginWithGoogle}>
                 Continue with Google

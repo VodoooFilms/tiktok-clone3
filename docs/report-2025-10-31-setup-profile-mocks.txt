@@ -63,3 +63,38 @@ Despliegue
 Pendientes sugeridos (seguimiento)
 - Extraer `GradientCard` como componente reutilizable y aplicar también en `/upload`.
 - Arreglar prerender en `app/auth/callback/page.tsx` agregando `Suspense` a `useSearchParams`.
+
+-------------------------------------------------------------------------------
+Actualización tarde 2025-10-31 (perfil + upload + coherencia)
+- Upload
+  - Unificado estilo con card degradado + blur.
+  - Reducción ~30% del tamaño del preview de video.
+  - Botón renombrado: “Add AI Sound”.
+
+- Setup Profile (Step 1/2/3)
+  - Step 1: botón “Use this photo as profile picture” (guarda avatar de una vez).
+  - Step 2: botón “Skip, use image only” (flujo sin video hacia 3/3).
+  - Step 3: sin video → “Save Profile Picture” (no post, solo avatar).
+  - Preload desde `?src=` para iniciar con la foto actual del perfil.
+
+- My Profile
+  - Card degradado + blur aplicado; anillo degradado en avatar.
+  - Acción “Setup avatar” siempre visible; ahora deshabilitada hasta que el
+    perfil esté “completo” (name o first/last). Si está deshabilitada, abre
+    “Edit profile” en lugar de navegar.
+  - Botones “Share / Edit profile / Setup avatar” alineados (misma altura/estilo).
+
+- Edit Profile Overlay
+  - UI actualizada a card degradado con blur y anillo degradado para avatar.
+
+- Resolución de avatar unificada
+  - Se muestra desde `avatar_url`/`avatarUrl`/`avatar` (http) o `avatar_object_name`
+    (vía `GET /api/gcs/public-url`) o ids de Appwrite (legacy).
+  - Nueva ruta: `app/api/gcs/public-url/route.ts`.
+
+- Seguridad de hooks
+  - `/auth/callback` y preload `?src` en Setup envueltos en `Suspense` para
+    evitar CSR bailout.
+
+Commits / rama
+- Pushed a `main`. Vercel debe desplegar automáticamente.

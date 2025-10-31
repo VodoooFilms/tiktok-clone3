@@ -55,7 +55,7 @@ export default function ProfileSetupPage() {
     // Simulate generation by drawing selfie to canvas with a tinted overlay
     const img = new Image();
     img.crossOrigin = "anonymous";
-    const attempt = (setup.images.length + 1).toString();
+    const attempt = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`;
     const tints = ["#10b98188", "#8b5cf688", "#f59e0b88"];
     const tint = tints[setup.images.length] ?? tints[0];
     await new Promise<void>((res, rej) => {
@@ -335,7 +335,7 @@ export default function ProfileSetupPage() {
                 <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                   <div className="flex items-center justify-center">
                     <div className="relative w-full max-w-sm">
-                    <div className="absolute -top-12 left-2 flex items-center gap-2 text-sm text-neutral-400">
+                    <div className="absolute top-2 left-2 flex items-center gap-2 text-sm text-neutral-200 bg-black/40 px-2 py-1 rounded-md">
                         {setup.selectedImage && (
                           <img src={setup.selectedImage.url} alt="avatar" className="h-8 w-8 rounded-full object-cover" />
                         )}
