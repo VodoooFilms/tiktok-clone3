@@ -37,3 +37,29 @@ Sugerencia de backup (manual)
 - Snapshot ZIP (Windows):
   - PowerShell: `Compress-Archive -Path * -DestinationPath backup-setup-profile-2025-10-31.zip`
 
+-------------------------------------------------------------------------------
+Actualización UI 2025-10-31 (consistencia visual)
+- Se unificó el estilo de las pantallas de Setup Profile con un “card” centrado:
+  - Borde degradado (cyan → fucsia → violeta) + fondo oscuro con `backdrop-blur`.
+  - Anillo degradado alrededor del avatar/preview.
+  - Mejoras de responsividad vertical para móvil; botones envuelven correctamente.
+- Paso 2: el preview de video ahora está dentro de un marco con degradado.
+- “My Profile”: se aplicó el mismo patrón de card al header de perfil.
+  - Avatar con anillo degradado; banner dentro de la card; espaciados pulidos.
+
+Archivos tocados en esta pasada
+- app/(main)/profile/setup/page.tsx
+- app/(main)/profile/[id]/page.tsx
+
+Notas técnicas
+- Se reutilizó el patrón visual del `welcome` (gradiente + blur) sin extraer aún
+  un componente compartido; no se cambiaron flujos ni lógicas existentes.
+- No se añadieron dependencias.
+
+Despliegue
+- Cambios commiteados y pusheados a `origin/master` para despliegue en Vercel.
+  Verificar build automático y probar `/profile/setup` y `/profile/[id]` en prod.
+
+Pendientes sugeridos (seguimiento)
+- Extraer `GradientCard` como componente reutilizable y aplicar también en `/upload`.
+- Arreglar prerender en `app/auth/callback/page.tsx` agregando `Suspense` a `useSearchParams`.
