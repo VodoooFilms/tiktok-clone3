@@ -4,10 +4,14 @@ import PostCard from "@/components/post-card";
 import { usePosts } from "@/lib/hooks/usePosts";
 import React, { useEffect, useState } from "react";
 import WelcomePopup from "@/components/WelcomePopup";
+import { shuffleArray } from "@/lib/utils/shuffle";
+import { Models } from "appwrite";
+import { isPlayablePost } from "@/lib/utils/posts";
 
 export default function Home() {
   const { posts, loading } = usePosts();
   const [showWelcome, setShowWelcome] = useState(false);
+  const [shuffledPosts, setShuffledPosts] = useState<Models.Document[]>([]);
 
   // Decide when to show the welcome popup (overlay version)
   useEffect(() => {
@@ -39,6 +43,28 @@ export default function Home() {
     }
   }, []);
 
+  // Randomize feed on load and when requested
+  useEffect(() => {
+    const filtered = posts.filter((p: any) => isPlayablePost(p));
+    setShuffledPosts(shuffleArray(filtered));
+  }, [posts]);
+
+  useEffect(() => {
+    const onShuffle = () => {
+      if (!posts || posts.length === 0) return;
+      const filtered = posts.filter((p: any) => isPlayablePost(p));
+      setShuffledPosts(shuffleArray(filtered));
+    };
+    if (typeof window !== "undefined") {
+      window.addEventListener("feed:shuffle", onShuffle as EventListener);
+    }
+    return () => {
+      if (typeof window !== "undefined") {
+        window.removeEventListener("feed:shuffle", onShuffle as EventListener);
+      }
+    };
+  }, [posts]);
+
   // Allow immediate trigger when clicking the logo while already on '/'
   useEffect(() => {
     const handler = () => setShowWelcome(true);
@@ -56,10 +82,10 @@ export default function Home() {
       {showWelcome && <WelcomePopup onClose={() => setShowWelcome(false)} />}
       <section className="w-full snap-y snap-mandatory md:snap-none space-y-3">
         {loading && <p className="p-4 text-sm text-neutral-500">Loading…</p>}
-        {!loading && posts.length === 0 && (
+        {!loading && shuffledPosts.length === 0 && (
           <p className="p-4 text-sm text-neutral-500">No posts yet.</p>
         )}
-        {!loading && posts.map((doc) => <PostCard key={doc.$id} doc={doc} />)}
+        {!loading && shuffledPosts.map((doc) => <PostCard key={doc.$id} doc={doc} />)}
       </section>
     </MainLayout>
   );

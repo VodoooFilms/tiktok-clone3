@@ -37,6 +37,7 @@ export default function PostCard({ doc }: Props) {
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [videoSrc, setVideoSrc] = useState<string>("");
+  const [videoError, setVideoError] = useState<boolean>(false);
   const [muted, setMuted] = useState<boolean>(true);
   const [prefMuted, setPrefMuted] = useState<boolean>(false);
   const [isActive, setIsActive] = useState<boolean>(false);
@@ -69,6 +70,7 @@ export default function PostCard({ doc }: Props) {
         } catch {}
       }
     }
+    setVideoError(false);
     setVideoSrc(src);
   }, [bucketId, doc, storage]);
 
@@ -93,7 +95,12 @@ export default function PostCard({ doc }: Props) {
     if (!el) return;
     if (isActive) {
       setMuted(prefMuted);
-      try { el.play?.(); } catch {}
+      try {
+        const maybe = (el as any).play?.();
+        if (maybe && typeof maybe.then === 'function') {
+          (maybe as Promise<void>).catch(() => {});
+        }
+      } catch {}
     } else {
       try { el.pause?.(); } catch {}
       setMuted(true);
@@ -434,8 +441,34 @@ export default function PostCard({ doc }: Props) {
               )}
             </div>
           </div>
+
+          {/* Top-right AI agent shuffle icon */}
+          <div className="pointer-events-auto absolute top-2 right-2 z-10 flex flex-col items-center">
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (typeof window !== 'undefined') {
+                  window.dispatchEvent(new Event('feed:shuffle'));
+                }
+              }}
+              className="block rounded-full overflow-hidden bg-white/80 hover:bg-white focus:outline-none focus:ring-2 focus:ring-white/70"
+              title="Shuffle For You"
+              aria-label="Shuffle feed"
+            >
+              <img
+                src="/images/iso.png"
+                alt="AI agent"
+                className="h-8 w-8 object-contain"
+              />
+            </button>
+            <div className="pointer-events-none mt-1 text-[10px] leading-tight text-white/90 drop-shadow text-center select-none">
+              <span className="block">Feed</span>
+              <span className="block">Agent</span>
+            </div>
+          </div>
           <Link href={`/post/${doc.$id}`} className="block" aria-label="Open post">
-            {videoSrc ? (
+            {videoSrc && !videoError ? (
               <video
                 ref={videoRef}
                 src={videoSrc}
@@ -446,6 +479,7 @@ export default function PostCard({ doc }: Props) {
                 autoPlay
                 controls={false}
                 preload="metadata"
+                onError={() => { setVideoError(true); }}
               />
             ) : (
               <div className="h-full w-full bg-neutral-900" />
@@ -462,7 +496,14 @@ export default function PostCard({ doc }: Props) {
                   try { if (typeof window !== 'undefined') window.localStorage.setItem('ytk_pref_muted', next ? '1' : '0'); } catch {}
                   setPrefMuted(next);
                   setMuted(next);
-                  if (!next) { try { videoRef.current?.play?.(); } catch {} }
+                  if (!next) {
+                    try {
+                      const maybe = videoRef.current?.play?.();
+                      if (maybe && typeof (maybe as any).then === 'function') {
+                        (maybe as Promise<void>).catch(() => {});
+                      }
+                    } catch {}
+                  }
                 }}
                 className="pointer-events-auto grid h-9 w-9 place-items-center rounded-full border border-neutral-700 bg-black/60 text-white hover:bg-black/80"
                 title={muted ? "Unmute" : "Mute"}
