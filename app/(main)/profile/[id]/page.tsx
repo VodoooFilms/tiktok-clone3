@@ -151,9 +151,19 @@ export default function ProfilePage() {
 
   return (
     <MainLayout>
-      <section className="w-full p-0">
-        {/* Banner */}
-        <div className="relative h-40 w-full bg-neutral-900">
+      {/* Subtle blurred background accents for consistency */}
+      <section className="relative min-h-[70vh] p-4 md:p-6 flex items-center justify-center">
+        <div className="pointer-events-none absolute inset-0 -z-10">
+          <div className="absolute -top-24 -left-20 h-72 w-72 rounded-full bg-fuchsia-500/10 blur-3xl" />
+          <div className="absolute -bottom-24 -right-20 h-72 w-72 rounded-full bg-cyan-400/10 blur-3xl" />
+        </div>
+
+        {/* Centered gradient bordered card */}
+        <div className="w-full max-w-4xl">
+          <div className="relative rounded-2xl p-[1px] bg-gradient-to-r from-cyan-400 via-fuchsia-500 to-violet-500 shadow-xl">
+            <div className="rounded-2xl bg-[#0a0a0a]/90 supports-[backdrop-filter]:bg-[#0a0a0a]/80 backdrop-blur overflow-hidden">
+              {/* Banner */}
+              <div className="relative h-40 w-full bg-neutral-900">
           {(() => {
             const any: any = profile || {};
             const urlCandidate =
@@ -173,8 +183,9 @@ export default function ProfilePage() {
               return null;
             }
           })()}
-          {/* Avatar */}
-          <div className="absolute -bottom-10 left-4 h-20 w-20 overflow-hidden rounded-full border-2 border-white bg-neutral-800">
+          {/* Avatar with gradient ring */}
+          <div className="absolute -bottom-10 left-4 rounded-full p-[3px] bg-gradient-to-tr from-cyan-400 via-fuchsia-500 to-violet-500">
+            <div className="h-20 w-20 overflow-hidden rounded-full bg-neutral-800">
             {(() => {
               const any: any = profile || {};
               const urlCandidate =
@@ -194,9 +205,10 @@ export default function ProfilePage() {
                 return null;
               }
             })()}
+            </div>
           </div>
         </div>
-        <div className="px-4 pt-12">
+        <div className="px-4 pt-12 pb-6">
           {isSelf && !hasAvatar && (
             <div className="mb-3 rounded border border-amber-500/40 bg-amber-50/10 px-3 py-2 text-sm text-amber-200">
               Complete your profile: add an avatar. <a href="/profile/setup" className="underline">Go to setup</a>
@@ -231,7 +243,7 @@ export default function ProfilePage() {
         </div>
 
         {/* Posts grid */}
-        <div className="mt-6 px-4">
+        <div className="mt-6 px-4 pb-6">
           <h2 className="mb-2 text-sm font-medium opacity-80">Posts</h2>
           {loadingPosts && <div className="text-sm text-neutral-400">Loading...</div>}
           {!loadingPosts && posts.length === 0 && (
@@ -268,6 +280,9 @@ export default function ProfilePage() {
               })}
             </div>
           )}
+        </div>
+            </div>
+          </div>
         </div>
       </section>
     </MainLayout>

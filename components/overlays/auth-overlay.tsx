@@ -5,6 +5,8 @@ import { account } from "@/libs/AppWriteClient";
 import { OAuthProvider } from "appwrite";
 
 function getRedirectURL() {
+  // Prefer the actual browser origin to avoid redirecting to a different domain
+  if (typeof window !== "undefined") return window.location.origin;
   const envUrl = process.env.NEXT_PUBLIC_APP_URL;
   if (envUrl && envUrl.length) {
     try {
@@ -15,7 +17,6 @@ function getRedirectURL() {
       // fallthrough
     }
   }
-  if (typeof window !== "undefined") return window.location.origin;
   return "http://localhost:3000";
 }
 
@@ -25,8 +26,10 @@ export default function AuthOverlay() {
   if (!authOpen) return null;
 
   const loginWithGoogle = async () => {
-    const redirect = getRedirectURL();
-    await account.createOAuth2Session(OAuthProvider.Google, redirect, `${redirect}?auth=failed`);
+    const origin = getRedirectURL();
+    const success = origin; // Provider handles code/state; UserProvider refreshes on mount
+    const failure = `${origin}?auth=failed`;
+    await account.createOAuth2Session(OAuthProvider.Google, success, failure);
   };
 
   return (

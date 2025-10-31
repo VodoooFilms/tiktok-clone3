@@ -6,7 +6,7 @@ import { useUser } from "@/app/context/user";
 import { useUI } from "@/app/context/ui-context";
 
 export default function MyProfileEntry() {
-  const { user, loading } = useUser();
+  const { user, loading, refresh } = useUser();
   const { openAuth } = useUI();
   const router = useRouter();
 
@@ -15,6 +15,12 @@ export default function MyProfileEntry() {
       router.replace(`/profile/${user.$id}`);
     }
   }, [user, loading, router]);
+
+  // If we land here right after OAuth and user isn't yet hydrated, force a refresh once
+  useEffect(() => {
+    if (!user) refresh().catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <MainLayout>
@@ -30,4 +36,3 @@ export default function MyProfileEntry() {
     </MainLayout>
   );
 }
-

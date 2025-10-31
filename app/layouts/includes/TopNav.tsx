@@ -13,7 +13,19 @@ export default function TopNav() {
   return (
     <header className="fixed inset-x-0 top-0 z-20 w-full bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="relative flex w-screen items-center justify-between pl-4 pr-6 md:pr-10 gap-3 h-14 md:h-16">
-        <Link href="/" className="flex items-center gap-2" aria-label="Home">
+        <Link
+          href="/"
+          className="flex items-center gap-2"
+          aria-label="Home"
+          onClick={() => {
+            try {
+              sessionStorage.setItem("yaddai_force_welcome", "1");
+              if (typeof window !== 'undefined' && window.location?.pathname === '/') {
+                window.dispatchEvent(new Event('yaddai:force-welcome'));
+              }
+            } catch {}
+          }}
+        >
           <img
             src="/images/yaddai-logo-white.png"
             alt="Yaddai"

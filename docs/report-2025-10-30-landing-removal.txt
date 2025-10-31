@@ -1,32 +1,32 @@
-Yaddai — Reporte de cambios (2025-10-30)
+﻿Yaddai â€” Reporte de cambios (2025-10-30)
 
 Resumen
-- Se eliminó la pantalla intermedia de “landing” que aparecía antes del feed.
-- La ruta raíz “/” vuelve a mostrar directamente el feed principal.
-- Se revirtieron enlaces que apuntaban a “/home” para que usen “/”.
+- Se eliminÃ³ la pantalla intermedia de â€œlandingâ€ que aparecÃ­a antes del feed.
+- La ruta raÃ­z â€œ/â€ vuelve a mostrar directamente el feed principal.
+- Se revirtieron enlaces que apuntaban a â€œ/homeâ€ para que usen â€œ/â€.
 - Cambios publicados en origin/master y origin/main.
 
-Detalles de implementación
+Detalles de implementaciÃ³n
 - Removido app/page.tsx (pantalla extra).
 - Restaurado el feed en app/(main)/page.tsx.
-- Enlaces actualizados para coherencia de navegación:
-  • app/layouts/includes/SideNavMain.tsx → “For You” a “/”.
-  • components/post-card.tsx → botón inferior “For You” a “/”.
-  • components/side-nav.tsx → “Home” a “/”.
+- Enlaces actualizados para coherencia de navegaciÃ³n:
+  â€¢ app/layouts/includes/SideNavMain.tsx â†’ â€œFor Youâ€ a â€œ/â€.
+  â€¢ components/post-card.tsx â†’ botÃ³n inferior â€œFor Youâ€ a â€œ/â€.
+  â€¢ components/side-nav.tsx â†’ â€œHomeâ€ a â€œ/â€.
 
 Commit y ramas
-- Commit: 04634a6 — "Remove extra landing page: show feed at root and revert links to '/'".
+- Commit: 04634a6 â€” "Remove extra landing page: show feed at root and revert links to '/'".
 - Push realizado a:
-  • origin/master (actualizado).
-  • origin/main (HEAD sincronizado).
+  â€¢ origin/master (actualizado).
+  â€¢ origin/main (HEAD sincronizado).
 
 Comportamiento esperado
-- Al entrar a “/” se muestra el feed principal.
-- El popup de bienvenida seguirá apareciendo solo la primera vez (controlado por localStorage: yaddai_welcome_seen).
+- Al entrar a â€œ/â€ se muestra el feed principal.
+- El popup de bienvenida seguirÃ¡ apareciendo solo la primera vez (controlado por localStorage: yaddai_welcome_seen).
 
-Verificación rápida (post-deploy)
-- Navegar a “/”: se ve el feed sin pantalla intermedia.
-- Navegación lateral e inferior: el tab “For You/Home” apunta a “/”.
+VerificaciÃ³n rÃ¡pida (post-deploy)
+- Navegar a â€œ/â€: se ve el feed sin pantalla intermedia.
+- NavegaciÃ³n lateral e inferior: el tab â€œFor You/Homeâ€ apunta a â€œ/â€.
 
 Pendientes opcionales
 - Si se desea, hacer que el popup de bienvenida se muestre siempre (ignorar cache) o desactivarlo temporalmente.
@@ -34,3 +34,5 @@ Pendientes opcionales
 Fecha
 - 2025-10-30
 
+ActualizaciÃ³n posterior
+- Se eliminÃ³ el popup de bienvenida del feed "For You" (ruta "/"). Ya no aparece en esa secciÃ³n, ni en recarga ni en navegaciÃ³n interna.

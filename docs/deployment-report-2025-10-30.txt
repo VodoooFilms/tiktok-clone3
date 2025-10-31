@@ -1,4 +1,4 @@
-Deployment Report – Yaddai
+﻿Deployment Report â€“ Yaddai
 
 Summary
 - Enabled large-file direct uploads to GCS via Signed URLs.
@@ -43,18 +43,19 @@ Timestamp
 - 2025-10-30
  
 ---
-Welcome Popup & UI Session Wrap
+Welcome Popup & Overlay
 - Added fullscreen WelcomePopup with dark/iridescent style.
 - Uses logo and lottieyaddai.png illustration; responsive sizing.
-- New copy set and refined (removed “original worlds”).
-- Shown once per user via localStorage key: yaddai_welcome_seen=true.
-- Integrated on home: app/(main)/page.tsx.
+- New copy set and refined (removed â€œoriginal worldsâ€).
+- Implemented as an overlay on the home feed; no separate route.
+- Shown only when: browser reload, first entry to '/', or clicking the Yaddai logo. Not shown on client-side navigation between sections (e.g., For You).
 - Attempted global iridescent accents (TopNav/SideNav); reverted per feedback.
 - Pushed to origin/master and origin/main.
 
-Files Touched
-- components/WelcomePopup.tsx
+ Files Touched
 - app/(main)/page.tsx
+- app/layouts/includes/TopNav.tsx
+- components/WelcomePopup.tsx
 - public/images/lottieyaddai.png
 
 Next Actions

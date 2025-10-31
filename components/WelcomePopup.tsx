@@ -93,7 +93,7 @@ export default function WelcomePopup({ onClose }: WelcomePopupProps) {
                   className="rounded-lg bg-transparent px-4 py-2 text-sm text-white/90 hover:text-white transition-shadow duration-200 hover:shadow-[0_0_24px_rgba(168,85,247,0.35)]"
                   onClick={onClose}
                 >
-                  Try the Beta
+                  Enter Yaddai
                 </button>
               </div>
 

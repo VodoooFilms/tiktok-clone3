@@ -2,6 +2,8 @@
 import UploadLayout from "@/app/layouts/UploadLayout";
 import { useState, useMemo, useRef } from "react";
 import { useUser } from "@/app/context/user";
+import { useEffect } from "react";
+import { useProfileSetup } from "@/app/context/profile-setup";
 import { database, ID, Permission, Role } from "@/libs/AppWriteClient";
 // Direct upload via signed URL
 import { useRouter } from "next/navigation";
@@ -11,6 +13,7 @@ const MAX_UPLOAD_MB = Number.isFinite(envLimit) && envLimit > 0 ? envLimit : 100
 
 export default function UploadPage() {
   const { user } = useUser();
+  const setup = useProfileSetup();
   const [file, setFile] = useState<File | null>(null);
   const [text, setText] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -48,6 +51,24 @@ export default function UploadPage() {
 
   const write = (line: string) => setLog((p) => (p ? p + "\n" + line : line));
   const router = useRouter();
+
+  // If coming from Profile Setup with an animation URL, preload it as a File
+  useEffect(() => {
+    let done = false;
+    async function preload() {
+      try {
+        if (!setup.fromSetup || !setup.animationUrl || file) return;
+        const res = await fetch(setup.animationUrl);
+        const blob = await res.blob();
+        const f = new File([blob], "yaddai-animation.webm", { type: blob.type || "video/webm" });
+        if (!done) setFile(f);
+      } catch {}
+    }
+    preload();
+    return () => {
+      done = true;
+    };
+  }, [setup.fromSetup, setup.animationUrl, file]);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -154,7 +175,7 @@ export default function UploadPage() {
                 <video ref={videoRef} src={previewUrl} className="aspect-[9/16] w-full object-cover rounded-xl" muted playsInline loop controls />
               ) : (
                 <div className="aspect-[9/16] w-full grid place-items-center text-sm text-neutral-400">
-                  Select a video to preview
+                  {setup.fromSetup && setup.animationUrl ? "Loaded from Profile Setup" : "Select a video to preview"}
                 </div>
               )}
             </div>

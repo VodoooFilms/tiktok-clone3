@@ -1,0 +1,39 @@
+Yaddai – Setup Profile (Mocks) — 2025-10-31
+
+Resumen
+- Flujo de Setup Profile implementado con mocks, habilitando subir foto, grabar/subir video, simular animación y redirigir a Post/Upload.
+- No se conectaron APIs de AI aún; todo funciona con estado temporal y blobs locales.
+
+Rutas y pruebas manuales
+- Abrir: `/profile/setup`.
+  1) Step 1: subir/tomar foto, opcional “GPT mini”, “Go Banana 🍌”. Botón extra: “Skip AI, use my photo”.
+  2) Step 2: grabar 5s con cámara (3-2-1) o subir video; “Retry” / “Continue”.
+  3) Step 3: “Generate Animation ⚡” (loader + banana animada) → redirige a `/upload`.
+- En `/upload` se precarga el video mock si vienes del setup; puedes “Post” (usa la lógica actual).
+
+Archivos añadidos
+- app/context/profile-setup.tsx:1 — Contexto global del flujo (selfie, prompts, imágenes generadas, video, animación, flags).
+- docs/profile-setup-flow.md:1 — Notas técnicas y cómo colocar bocetos.
+
+Archivos modificados
+- components/providers.tsx:1 — Se añade `ProfileSetupProvider`.
+- app/(main)/profile/setup/page.tsx:1 — UI 3 pasos, botones mágicos, grabación 5s, loader, navegación.
+- app/(upload)/upload/page.tsx:1 — Autocarga del video desde `animationUrl` cuando `fromSetup` es true.
+
+Detalles de implementación
+- Step 1: al subir imagen se marca como `selectedImage` para habilitar “Next”. Hasta 3 intentos con “Go Banana 🍌” (tinte en canvas).
+- Step 2: MediaRecorder de 5s o upload local; vista previa y controles.
+- Step 3: Simulación 4s con barra y banana `animate-spin`; guarda `animationUrl` y redirige a `/upload`.
+
+Conocido/pendiente
+- Build: error de prerender en `app/auth/callback/page.tsx` (falta Suspense alrededor de `useSearchParams`). No se tocó en este cambio.
+- Limpiezas futuras: revocar `URL.createObjectURL`, botón “Back” entre pasos, manejo de permisos cámara.
+- Integraciones Fase 2: GPT mini real, generador de imagen (Nano Banana/SD), animación (WanAnimate/Runway/Sora), storage definitivo.
+
+Sugerencia de backup (manual)
+- Git (si aplica):
+  - `git add .`
+  - `git commit -m "feat(setup-profile): mock flow + provider + upload preload"`
+- Snapshot ZIP (Windows):
+  - PowerShell: `Compress-Archive -Path * -DestinationPath backup-setup-profile-2025-10-31.zip`
+
