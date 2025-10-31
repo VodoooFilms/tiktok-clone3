@@ -1,0 +1,24 @@
+Yaddai – Deployment Report
+Date: 2025-10-31 12:19:16 -05:00
+
+Summary
+- Updated landing and welcome popup CTAs to “Enter the Beta”.
+- Replaced “Continue as guest” wording with “Enter the Beta” where applicable.
+- Profile page banner copy changed to banana message with emoji.
+- Fixed profile UI: avoided avatar badge/text overlap.
+- Fixed duplicate key warning in Profile Setup by generating unique IDs.
+- Upload (Post 4/4) Discard now clears preview and prevents auto-reimport from setup.
+- Force-pushed local clean state to origin/main to resolve divergence.
+
+Changed Files
+- app/welcome/page.tsx
+- components/WelcomePopup.tsx
+- components/overlays/auth-overlay.tsx
+- app/(main)/profile/[id]/page.tsx
+- app/(main)/profile/setup/page.tsx
+- app/(upload)/upload/page.tsx
+
+Notes
+- Omitted untracked local artifacts (.gcs-sa.json, patch*.diff, temp_*).
+- Team members should fetch and rebase/reset to the new main.
+
