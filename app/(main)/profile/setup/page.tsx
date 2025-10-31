@@ -6,6 +6,10 @@ import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useUpload } from "@/lib/hooks/useUpload";
 import { database } from "@/libs/AppWriteClient";
+import { STYLES } from "@/lib/ai/styles";
+import { urlToBase64 } from "@/lib/utils/fileToBase64";
+import { imageUrlToSquareBase64 } from "@/lib/utils/imageSquare";
+import { transformImage as geminiTransformImage } from "@/lib/ai/gemini";
 
 export default function ProfileSetupPage() {
   const { user, loading } = useUser();
@@ -20,6 +24,8 @@ export default function ProfileSetupPage() {
   const [recording, setRecording] = useState(false);
   const [countdown, setCountdown] = useState<number | null>(null);
   const [generating, setGenerating] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!loading && !user) return; // gated UI below
@@ -52,26 +58,47 @@ export default function ProfileSetupPage() {
 
   async function generateAIImage() {
     if (!setup.selfieUrl) return;
-    // Simulate generation by drawing selfie to canvas with a tinted overlay
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    const attempt = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`;
-    const tints = ["#10b98188", "#8b5cf688", "#f59e0b88"];
-    const tint = tints[setup.images.length] ?? tints[0];
-    await new Promise<void>((res, rej) => {
-      img.onload = () => res();
-      img.onerror = () => rej(new Error("failed to load selfie"));
-      img.src = setup.selfieUrl as string;
-    });
-    const canvas = document.createElement("canvas");
-    canvas.width = img.width || 512;
-    canvas.height = img.height || 512;
-    const ctx = canvas.getContext("2d")!;
-    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = tint;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    const url = canvas.toDataURL("image/png");
-    setup.pushImage({ id: attempt, url });
+    try {
+      setAiError(null);
+      setAiLoading(true);
+      const remaining = Math.max(0, 3 - setup.images.length);
+      if (remaining === 0) return;
+
+      // Square center-crop improves identity alignment for avatar use-cases
+      const { base64Data, mimeType } = await imageUrlToSquareBase64(setup.selfieUrl);
+      const userPrompt = (setup.promptImproved || setup.promptOriginal || "").trim();
+      const targets = STYLES.slice(0, remaining);
+
+      const jobs = targets.map((style) =>
+        geminiTransformImage(
+          base64Data,
+          mimeType,
+          userPrompt ? `${userPrompt}. ${style.prompt}` : style.prompt
+        ).then((b64) => ({ style, b64 }))
+      );
+
+      const results = await Promise.allSettled(jobs);
+      let pushed = 0;
+      const reasons: string[] = [];
+      for (const r of results) {
+        if (r.status === "fulfilled") {
+          const id = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+          const url = `data:image/png;base64,${r.value.b64}`;
+          setup.pushImage({ id, url });
+          pushed += 1;
+        } else {
+          reasons.push(String((r.reason as any)?.message || r.reason || "unknown"));
+        }
+      }
+      if (pushed === 0) throw new Error(`No se pudo generar ninguna imagen. ${reasons[0] ?? ""}`);
+    } catch (e: any) {
+      console.error(e);
+      const msg = String(e?.message || e || "Error generando imagen.");
+      setAiError(msg);
+      try { alert(msg); } catch {}
+    } finally {
+      setAiLoading(false);
+    }
   }
 
   // Detect profile schema keys to update avatar fields safely
