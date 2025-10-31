@@ -1,9 +1,18 @@
 "use client";
-import { useEffect, useMemo } from "react";
+import { Suspense, useEffect, useMemo } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useUser } from "@/app/context/user";
 
 export default function AuthCallbackPage() {
+  // Wrap the search params usage in Suspense to satisfy Next.js CSR bailout rules
+  return (
+    <Suspense fallback={<AuthCallbackFallback />}> 
+      <AuthCallbackInner />
+    </Suspense>
+  );
+}
+
+function AuthCallbackInner() {
   const params = useSearchParams();
   const router = useRouter();
   const { user, loading, refresh } = useUser();
@@ -31,12 +40,13 @@ export default function AuthCallbackPage() {
     }
   }, [failed, loading, user, router]);
 
+  return <AuthCallbackFallback />;
+}
+
+function AuthCallbackFallback() {
   return (
     <div className="min-h-screen flex items-center justify-center">
-      <div className="rounded border border-neutral-800 px-4 py-3 text-sm text-neutral-300">
-        Completing sign-in…
-      </div>
+      <div className="rounded border border-neutral-800 px-4 py-3 text-sm text-neutral-300">Completing sign-in…</div>
     </div>
   );
 }
-
