@@ -8,6 +8,7 @@ import { useParams } from "next/navigation";
 import type { Models } from "appwrite";
 import { database, storage, Query, ID, Permission, Role } from "@/libs/AppWriteClient";
 import Link from "next/link";
+import { useUI } from "@/app/context/ui-context";
 
 type Doc = Models.Document;
 
@@ -35,6 +36,16 @@ export default function ProfilePage() {
   const isSelf = user?.$id === String(userId);
   const [avatarResolvedUrl, setAvatarResolvedUrl] = useState<string>("");
   const hasAvatar = useMemo(() => Boolean(avatarResolvedUrl), [avatarResolvedUrl]);
+  const { openEditProfile } = useUI();
+
+  // Consider profile "filled" if we can compute a display name
+  const profileFilled = useMemo(() => {
+    const any: any = profile || {};
+    const fn = any.firstName || null;
+    const ln = any.lastName || null;
+    const name = [fn, ln].filter(Boolean).join(" ") || any.name || null;
+    return Boolean(name && String(name).trim());
+  }, [profile]);
 
   // Resolve avatar URL from known fields or object name (GCS)
   useEffect(() => {
@@ -243,8 +254,14 @@ export default function ProfilePage() {
                   <ProfileActions />
                   <Link
                     href={`/profile/setup${avatarResolvedUrl ? `?src=${encodeURIComponent(avatarResolvedUrl)}` : ""}`}
-                    className="inline-flex h-9 items-center rounded-lg border border-white/20 px-4 text-sm text-white/90 hover:border-white/40 hover:text-white"
-                    title="Setup avatar"
+                    className={`inline-flex h-9 items-center rounded-lg border px-4 text-sm ${profileFilled ? "border-white/20 text-white/90 hover:border-white/40 hover:text-white" : "border-white/10 text-white/50 cursor-not-allowed pointer-events-auto"}`}
+                    title={profileFilled ? "Setup avatar" : "Complete your profile first"}
+                    onClick={(e) => {
+                      if (!profileFilled) {
+                        e.preventDefault();
+                        try { openEditProfile(); } catch {}
+                      }
+                    }}
                   >
                     Setup avatar
                   </Link>
