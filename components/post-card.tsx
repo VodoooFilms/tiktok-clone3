@@ -36,6 +36,8 @@ export default function PostCard({ doc }: Props) {
   const createdKey = get(["created_at", "createdAt", "$createdAt"]) || "$createdAt";
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [videoNatural, setVideoNatural] = useState<{ w: number; h: number } | null>(null);
+  const [ratio, setRatio] = useState<"vertical" | "horizontal" | "square" | null>(null);
   const [videoSrc, setVideoSrc] = useState<string>("");
   const [videoError, setVideoError] = useState<boolean>(false);
   const [muted, setMuted] = useState<boolean>(true);
@@ -408,9 +410,9 @@ export default function PostCard({ doc }: Props) {
 
   return (
     <article className="w-full snap-start">
-      <div className="mx-auto md:ml-[80px] flex w-full max-w-[680px] flex-col gap-2 px-0 md:px-4" style={{ maxWidth: "calc((100vh - 56px - 15px) * 9 / 16)" }}>
+      <div className="mx-auto md:ml-[80px] flex w-full max-w-[680px] flex-col gap-2 px-0 md:px-4">
         <div
-          className="relative w-full bg-black md:rounded-lg overflow-hidden"
+          className="relative w-full bg-black md:rounded-lg overflow-hidden flex items-center justify-center"
           style={{ height: "calc(100vh - 56px - 15px)" }}
         >
           {/* Top-left author avatar (moved from right rail to differentiate) */}
@@ -472,14 +474,48 @@ export default function PostCard({ doc }: Props) {
               <video
                 ref={videoRef}
                 src={videoSrc}
-                className="h-full w-full object-cover rounded-[10px]"
+                className={`rounded-[10px] ${ratio ? `ratio-${ratio}` : ""}`}
                 muted={muted}
                 playsInline
                 loop
                 autoPlay
                 controls={false}
                 preload="metadata"
+                onLoadedMetadata={() => {
+                  const el = videoRef.current;
+                  if (!el) return;
+                  const w = el.videoWidth || 0;
+                  const h = el.videoHeight || 0;
+                  if (w > 0 && h > 0) {
+                    setVideoNatural({ w, h });
+                    if (w === h) setRatio("square");
+                    else if (h > w) setRatio("vertical");
+                    else setRatio("horizontal");
+                  }
+                }}
                 onError={() => { setVideoError(true); }}
+                style={{
+                  objectFit: "contain",
+                  // Smooth transitions on size changes
+                  transition: "width 0.4s ease-in-out, height 0.4s ease-in-out, max-width 0.4s ease-in-out, max-height 0.4s ease-in-out",
+                  ...(ratio === "vertical"
+                    ? {
+                        maxHeight: "90vh",
+                        // per requirement: maxWidth auto for vertical
+                        maxWidth: "auto",
+                      }
+                    : ratio === "horizontal"
+                    ? {
+                        maxWidth: "100%",
+                        maxHeight: "auto",
+                      }
+                    : ratio === "square"
+                    ? {
+                        maxWidth: "90%",
+                        maxHeight: "90vh",
+                      }
+                    : {}),
+                }}
               />
             ) : (
               <div className="h-full w-full bg-neutral-900" />
@@ -514,17 +550,17 @@ export default function PostCard({ doc }: Props) {
             </div>
 
 
-            {/* Left action rail overlay (moved from right to left) */}
-            <div className="pointer-events-auto absolute inset-y-0 left-2 flex flex-col items-center justify-center gap-3">
+            {/* Right action rail overlay (fixed relative to video container) */}
+            <div className="pointer-events-auto absolute inset-y-0 right-2 flex flex-col items-center justify-center md:gap-3 gap-2.5">
               {/* Like */}
               <button
                 onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleLike(); }}
-                className={`grid h-12 w-12 place-items-center rounded-full border transition-colors ${likeDocId ? "bg-rose-600 border-rose-600 text-white" : "border-neutral-700 hover:bg-neutral-900 text-neutral-200"} ${likeBusy ? "opacity-60 cursor-not-allowed" : ""}`}
+                className={`grid md:h-12 md:w-12 h-9 w-9 place-items-center rounded-full border transition-colors ${likeDocId ? "bg-rose-600 border-rose-600 text-white" : "border-neutral-700 hover:bg-neutral-900 text-neutral-200"} ${likeBusy ? "opacity-60 cursor-not-allowed" : ""}`}
                 title={user ? (likeDocId ? "Unlike" : "Like") : "Log in to like"}
                 disabled={likeBusy}
                 aria-label={user ? (likeDocId ? "Unlike post" : "Like post") : "Log in to like"}
               >
-                <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" className="fill-current"><path d="M12.1 8.64l-.1.1-.11-.11C10.14 6.9 7.4 6.9 5.64 8.66c-1.76 1.76-1.76 4.6 0 6.36L12 21.36l6.36-6.34c1.76-1.76 1.76-4.6 0-6.36-1.76-1.76-4.6-1.76-6.26-.02z"/></svg>
+                <svg viewBox="0 0 24 24" aria-hidden="true" className="fill-current md:w-5 md:h-5 w-[15px] h-[15px]"><path d="M12.1 8.64l-.1.1-.11-.11C10.14 6.9 7.4 6.9 5.64 8.66c-1.76 1.76-1.76 4.6 0 6.36L12 21.36l6.36-6.34c1.76-1.76 1.76-4.6 0-6.36-1.76-1.76-4.6-1.76-6.26-.02z"/></svg>
               </button>
               <div className="text-xs opacity-80 min-w-[2ch] text-center text-white drop-shadow">{loadingLikes ? "..." : likeCount}</div>
               {/* Comments navigates to detail */}
@@ -535,19 +571,19 @@ export default function PostCard({ doc }: Props) {
                   openComments(String((doc as any).$id));
                 }}
                 title="Comments"
-                className="grid h-12 w-12 place-items-center rounded-full border border-neutral-700 hover:bg-neutral-900 text-neutral-200"
+                className="grid md:h-12 md:w-12 h-9 w-9 place-items-center rounded-full border border-neutral-700 hover:bg-neutral-900 text-neutral-200"
                 aria-label="Open comments"
               >
-                <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" className="fill-current"><path d="M20 2H4a2 2 0 00-2 2v14l4-4h14a2 2 0 002-2V4a2 2 0 00-2-2z"/></svg>
+                <svg viewBox="0 0 24 24" aria-hidden="true" className="fill-current md:w-5 md:h-5 w-[15px] h-[15px]"><path d="M20 2H4a2 2 0 00-2 2v14l4-4h14a2 2 0 002-2V4a2 2 0 00-2-2z"/></svg>
               </button>
               {/* Share */}
               <button
                 onClick={(e) => { e.preventDefault(); e.stopPropagation(); openShare(String((doc as any).$id)); }}
-                className="grid h-12 w-12 place-items-center rounded-full border border-neutral-700 hover:bg-neutral-900 text-neutral-200"
+                className="grid md:h-12 md:w-12 h-9 w-9 place-items-center rounded-full border border-neutral-700 hover:bg-neutral-900 text-neutral-200"
                 title="Share"
                 aria-label="Share post"
               >
-                <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" className="fill-current"><path d="M14 9V5l7 7-7 7v-4H6v-6z"/></svg>
+                <svg viewBox="0 0 24 24" aria-hidden="true" className="fill-current md:w-5 md:h-5 w-[15px] h-[15px]"><path d="M14 9V5l7 7-7 7v-4H6v-6z"/></svg>
               </button>
             </div>
 
