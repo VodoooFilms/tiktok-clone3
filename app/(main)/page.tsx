@@ -3,6 +3,8 @@ import MainLayout from "@/app/layouts/MainLayout";
 import PostCard from "@/components/post-card";
 import { usePosts } from "@/lib/hooks/usePosts";
 import React, { useEffect, useState } from "react";
+import { useUser } from "@/app/context/user";
+import { useRouter } from "next/navigation";
 import WelcomePopup from "@/components/WelcomePopup";
 import { shuffleArray } from "@/lib/utils/shuffle";
 import { Models } from "appwrite";
@@ -10,38 +12,27 @@ import { isPlayablePost } from "@/lib/utils/posts";
 
 export default function Home() {
   const { posts, loading } = usePosts();
-  const [showWelcome, setShowWelcome] = useState(false);
+  const { user } = useUser();
+  const router = useRouter();
   const [shuffledPosts, setShuffledPosts] = useState<Models.Document[]>([]);
+  const [showWelcome, setShowWelcome] = useState(false);
 
-  // Decide when to show the welcome popup (overlay version)
+  // Show welcome overlay once for anonymous users (transparent over moving feed)
   useEffect(() => {
     try {
-      // Explicit trigger set by clicking the Yaddai logo
-      const force = typeof window !== "undefined" && sessionStorage.getItem("yaddai_force_welcome") === "1";
-      if (force) {
+      if (typeof window === 'undefined') return;
+      if (user) { setShowWelcome(false); return; }
+      const KEY = 'yaddai_seen_welcome_v1';
+      const SKEY = 'yaddai_seen_welcome_session_v1';
+      const seenLocal = (() => { try { return window.localStorage.getItem(KEY) === '1'; } catch { return false; } })();
+      const seenSession = (() => { try { return window.sessionStorage.getItem(SKEY) === '1'; } catch { return false; } })();
+      if (!seenLocal && !seenSession) {
+        try { window.localStorage.setItem(KEY, '1'); } catch {}
+        try { window.sessionStorage.setItem(SKEY, '1'); } catch {}
         setShowWelcome(true);
-        sessionStorage.removeItem("yaddai_force_welcome");
-        return;
       }
-
-      const navEntries = typeof performance !== "undefined" ? (performance.getEntriesByType("navigation") as PerformanceNavigationTiming[]) : [];
-      const navType = navEntries && navEntries.length > 0 ? navEntries[0].type : (undefined as any);
-
-      // Show on browser reload
-      if (navType === "reload") {
-        setShowWelcome(true);
-        return;
-      }
-
-      // Show on first entry to the app at '/': history length usually 1
-      if (typeof window !== "undefined" && window.location?.pathname === "/" && window.history.length <= 1) {
-        setShowWelcome(true);
-        return;
-      }
-    } catch {
-      // If detection fails, fail closed (no popup on soft navs)
-    }
-  }, []);
+    } catch {}
+  }, [user]);
 
   // Randomize feed on load and when requested
   useEffect(() => {
@@ -65,21 +56,9 @@ export default function Home() {
     };
   }, [posts]);
 
-  // Allow immediate trigger when clicking the logo while already on '/'
-  useEffect(() => {
-    const handler = () => setShowWelcome(true);
-    if (typeof window !== "undefined") {
-      window.addEventListener("yaddai:force-welcome", handler as EventListener);
-    }
-    return () => {
-      if (typeof window !== "undefined") {
-        window.removeEventListener("yaddai:force-welcome", handler as EventListener);
-      }
-    };
-  }, []);
+  // Removed manual trigger; welcome appears only on first visit
   return (
     <MainLayout>
-      {showWelcome && <WelcomePopup onClose={() => setShowWelcome(false)} />}
       <section className="w-full snap-y snap-mandatory md:snap-none space-y-3">
         {loading && <p className="p-4 text-sm text-neutral-500">Loading…</p>}
         {!loading && shuffledPosts.length === 0 && (
@@ -87,6 +66,7 @@ export default function Home() {
         )}
         {!loading && shuffledPosts.map((doc) => <PostCard key={doc.$id} doc={doc} />)}
       </section>
+      {showWelcome && <WelcomePopup onClose={() => setShowWelcome(false)} />}
     </MainLayout>
   );
 }

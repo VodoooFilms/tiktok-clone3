@@ -10,7 +10,6 @@ type UserContextValue = {
   user: AppwriteUser | null;
   loading: boolean;
   refresh: () => Promise<void>;
-  loginAnonymous: () => Promise<void>;
   logout: () => Promise<void>;
 };
 
@@ -95,51 +94,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const loginAnonymous = async () => {
-    try {
-      // Use REST path to avoid SDK's localStorage fallback
-      if (!endpoint || !project) throw new Error("Missing Appwrite env");
-      const res = await fetch(`${endpoint}/account/sessions/anonymous`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "X-Appwrite-Project": String(project), "content-type": "application/json" },
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      // After session creation, fetch current user via REST or SDK fallback
-      const me = await (async () => {
-        if (storageWritable === false) {
-          const r = await fetch(`${endpoint}/account`, {
-            credentials: "include",
-            headers: { "X-Appwrite-Project": String(project) },
-          });
-          if (!r.ok) throw new Error(`HTTP ${r.status}`);
-          return (await r.json()) as AppwriteUser;
-        }
-        try {
-          // Also set header session on client, if present later
-          const data: any = await account.get();
-          return data as AppwriteUser;
-        } catch {
-          const r = await fetch(`${endpoint}/account`, {
-            credentials: "include",
-            headers: { "X-Appwrite-Project": String(project) },
-          });
-          if (!r.ok) throw new Error(`HTTP ${r.status}`);
-          return (await r.json()) as AppwriteUser;
-        }
-      })();
-      setUser(me as AppwriteUser);
-      safeSet(
-        CACHE_KEY,
-        JSON.stringify({ $id: me.$id, name: me.name, email: (me as any).email ?? null })
-      );
-    } catch (err) {
-      console.error("Anonymous login failed", err);
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Anonymous login removed — Google OAuth is the only method now
 
   const logout = async () => {
     try {
@@ -300,7 +255,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const value = useMemo<UserContextValue>(
-    () => ({ user, loading, refresh, loginAnonymous, logout }),
+    () => ({ user, loading, refresh, logout }),
     [user, loading]
   );
 

@@ -269,7 +269,7 @@ export default function DebugPage() {
           </button>
         </div>
         {!user && (
-          <div className="mt-2 text-xs text-amber-300">No session detected. Open the homepage to log in anonymously first.</div>
+          <div className="mt-2 text-xs text-amber-300">No session detected. Open the homepage to use Google login on the homepage.</div>
         )}
       </div>
       <pre ref={outRef} className="h-[60vh] w-full overflow-auto rounded border border-gray-700 bg-black/70 p-3 text-xs leading-relaxed text-green-200">
@@ -278,3 +278,4 @@ export default function DebugPage() {
     </div>
   );
 }
+

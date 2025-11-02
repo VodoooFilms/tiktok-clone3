@@ -1,6 +1,8 @@
 "use client";
 import React, { useEffect, useRef, useState } from "react";
 import Image from "next/image";
+import { account } from "@/libs/AppWriteClient";
+import { OAuthProvider } from "appwrite";
 
 type WelcomePopupProps = {
   onClose: () => void;
@@ -28,6 +30,26 @@ export default function WelcomePopup({ onClose }: WelcomePopupProps) {
     if (cardRef.current && !cardRef.current.contains(e.target as Node)) {
       onClose();
     }
+  };
+
+  function getRedirectURL() {
+    if (typeof window !== "undefined") return window.location.origin;
+    const envUrl = process.env.NEXT_PUBLIC_APP_URL;
+    if (envUrl && envUrl.length) {
+      try {
+        const withScheme = /^https?:\/\//i.test(envUrl) ? envUrl : `https://${envUrl}`;
+        const u = new URL(withScheme);
+        return u.origin;
+      } catch {}
+    }
+    return "http://localhost:3000";
+  }
+
+  const loginWithGoogle = async () => {
+    const origin = getRedirectURL();
+    const success = origin;
+    const failure = `${origin}?auth=failed`;
+    await account.createOAuth2Session(OAuthProvider.Google, success, failure);
   };
 
   return (
@@ -85,41 +107,29 @@ export default function WelcomePopup({ onClose }: WelcomePopupProps) {
             </p>
 
             {/* Actions */}
-            <div className="mt-6 flex items-center justify-center gap-3">
-              {/* Try the Beta (gradient border) */}
-              <div className="rounded-lg p-[1px] bg-gradient-to-r from-cyan-400 via-fuchsia-500 to-violet-500">
-                <button
-                  type="button"
-                  className="rounded-lg bg-transparent px-4 py-2 text-sm text-white/90 hover:text-white transition-shadow duration-200 hover:shadow-[0_0_24px_rgba(168,85,247,0.35)]"
-                  onClick={onClose}
-                >
-                  Enter the Beta
-                </button>
-              </div>
-
-              {/* Continue with Google */}
+            <div className="mt-6 flex items-center justify-center">
               <button
                 type="button"
-                className="inline-flex items-center gap-2 rounded-lg border border-white/20 px-4 py-2 text-sm text-white/90 hover:border-white/40 hover:text-white transition-colors"
-                onClick={onClose}
+                className="inline-flex items-center gap-2 rounded-lg border border-white/20 px-5 py-2.5 text-sm text-white/90 hover:border-white/40 hover:text-white transition-colors"
+                onClick={loginWithGoogle}
               >
                 <GoogleIcon className="h-4 w-4" />
                 Continue with Google
               </button>
             </div>
 
-            {/* Enter the Beta */}
+            {/* Continue with Google */}
             <button
               type="button"
-              className="mt-3 text-xs text-neutral-400 hover:underline"
-              onClick={onClose}
+              className="hidden mt-3 text-xs text-neutral-400 hover:underline"
+              onClick={loginWithGoogle}
             >
-              Enter the Beta
+              Continue with Google
             </button>
 
             {/* Footer */}
             <p className="hidden">
-              © 2025 Yaddai — Private Beta
+              © 2025 Yaddai — 
             </p>
           </div>
         </div>
@@ -147,3 +157,4 @@ function GoogleIcon({ className = "" }: { className?: string }) {
     </svg>
   );
 }
+

@@ -2,12 +2,13 @@
 import { useUI } from "@/app/context/ui-context";
 import { useUser } from "@/app/context/user";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { IconPlus, IconLogout } from "@/components/icons";
 
 export default function TopNav() {
   const { openAuth } = useUI();
   const { user, logout } = useUser();
+  const router = useRouter();
   const pathname = usePathname();
   const isActive = (_href: string) => ""; // tabs removed
   return (
@@ -17,14 +18,6 @@ export default function TopNav() {
           href="/"
           className="flex items-center gap-2"
           aria-label="Home"
-          onClick={() => {
-            try {
-              sessionStorage.setItem("yaddai_force_welcome", "1");
-              if (typeof window !== 'undefined' && window.location?.pathname === '/') {
-                window.dispatchEvent(new Event('yaddai:force-welcome'));
-              }
-            } catch {}
-          }}
         >
           <img
             src="/images/yaddai-logo-white.png"
@@ -51,11 +44,11 @@ export default function TopNav() {
         </form>
         <nav className="flex items-center gap-2 text-sm ml-auto">
           <a
-            href={user ? "/upload" : "#"}
+            href={user ? "/upload" : "/welcome"}
             onClick={(e) => {
               if (!user) {
-                e.preventDefault();
-                openAuth();
+                // Let the link navigate to /welcome
+                return;
               }
             }}
             className="rounded border px-3 py-1 hover:bg-neutral-100 dark:hover:bg-neutral-900 inline-flex items-center gap-1.5"
@@ -64,12 +57,7 @@ export default function TopNav() {
             Upload
           </a>
           {!user ? (
-            <button
-              onClick={openAuth}
-              className="rounded bg-black text-white px-3 py-1 dark:bg-white dark:text-black"
-            >
-              Log in
-            </button>
+            <Link href="/welcome" className="rounded bg-black text-white px-3 py-1 dark:bg-white dark:text-black">Log in</Link>
           ) : (
             <>
               <button className="rounded border px-3 py-1 inline-flex items-center gap-1.5" onClick={logout}>

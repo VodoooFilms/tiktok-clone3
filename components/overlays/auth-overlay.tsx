@@ -22,7 +22,7 @@ function getRedirectURL() {
 
 export default function AuthOverlay() {
   const { authOpen, closeAuth } = useUI();
-  const { user, loading, loginAnonymous, logout } = useUser();
+  const { user, loading, logout } = useUser();
   if (!authOpen) return null;
 
   const loginWithGoogle = async () => {
@@ -49,26 +49,18 @@ export default function AuthOverlay() {
             <p className="text-neutral-400 break-all">{user.email || user.name || user.$id}</p>
           </div>
         ) : (
-          <p className="mb-4 text-sm text-neutral-300">{loading ? "Verifying session..." : "Choose a method to continue."}</p>
+          <p className="mb-4 text-sm text-neutral-300">{loading ? "Verifying session..." : "Continue with Google to sign in."}</p>
         )}
 
         <div className="flex flex-col gap-2">
           {(!user || loading) && (
-            <>
-              <button
-                className="rounded bg-emerald-600 hover:bg-emerald-500 px-3 py-2 text-white"
-                onClick={async () => {
-                  await loginAnonymous();
-                  closeAuth();
-                }}
-                disabled={loading}
-              >
-                Enter the Beta
-              </button>
-              <button className="rounded border border-neutral-700 hover:bg-white/10 px-3 py-2" onClick={loginWithGoogle}>
-                Continue with Google
-              </button>
-            </>
+            <button
+              className="rounded bg-emerald-600 hover:bg-emerald-500 px-3 py-2 text-white"
+              onClick={loginWithGoogle}
+              disabled={loading}
+            >
+              Continue with Google
+            </button>
           )}
 
           {user && !loading && (

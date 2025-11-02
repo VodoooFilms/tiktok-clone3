@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import type { Models } from "appwrite";
 import { database, storage, Query, ID, Permission, Role } from "@/libs/AppWriteClient";
+import { makeFollowDocId } from "@/lib/utils/followId";
 import Link from "next/link";
 import { useUI } from "@/app/context/ui-context";
 
@@ -167,7 +168,7 @@ export default function ProfilePage() {
           Permission.delete(Role.user(user.$id)),
         ];
         // Deterministic composite ID to avoid duplicate errors and make idempotent
-        const compositeId = `f_${user.$id.slice(0,12)}_${String(userId).slice(0,12)}`;
+        const compositeId = makeFollowDocId(user.$id, String(userId));
         try {
           const created = await database.createDocument(databaseId, followCol, ID.custom(compositeId), payload, perms as any);
           setIsFollowing(true);

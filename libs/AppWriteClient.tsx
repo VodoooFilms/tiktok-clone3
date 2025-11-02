@@ -8,6 +8,14 @@ const project = (process.env.NEXT_PUBLIC_APPWRITE_PROJECT || "").trim();
 const client = new Client();
 if (endpoint) client.setEndpoint(endpoint);
 if (project) client.setProject(project);
+// Optional: custom realtime endpoint (helps when API and WS are split behind proxies)
+const realtimeEndpoint = (process.env.NEXT_PUBLIC_APPWRITE_REALTIME_URL || "").trim();
+try { (client as any).setEndpointRealtime?.(realtimeEndpoint || undefined); } catch {}
+// Local HTTPS with self-signed cert support
+try {
+  const isLocalHttps = /^https:\/\/(localhost|127\.0\.0\.1)/i.test(endpoint);
+  if (isLocalHttps) (client as any).setSelfSigned?.(true);
+} catch {}
 
 const account = new Account(client);
 const database = new Databases(client);
